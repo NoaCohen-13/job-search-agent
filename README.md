@@ -4,9 +4,6 @@ A personal AI job search agent with a web dashboard, built on the [Claude Agent 
 
 **Uses your Claude subscription — no separate API key needed.**
 
-![JobAgent dashboard](https://github.com/user-attachments/assets/placeholder)
-> *Replace this line with a real screenshot once you've set it up*
-
 ---
 
 ## What it does
