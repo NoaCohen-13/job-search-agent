@@ -1,5 +1,7 @@
 # JobAgent
 
+![JobAgent dashboard](https://github.com/user-attachments/assets/8e544a92-b064-4d8e-b450-89c13beb123f)
+
 A personal AI job search agent with a web dashboard, built on the [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk). Chat naturally with your agent to track applications, research companies, tailor your resume, and run mock interviews — all from a single local UI.
 
 **Uses your Claude subscription — no separate API key needed.**
