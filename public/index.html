@@ -274,7 +274,15 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .cp-meta-item { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
 .cp-meta-label { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
 .cp-meta-value { font-size: 12px; font-weight: 600; color: var(--sub); margin-top: 3px; }
-.cp-status-select { font-size: 12px; font-weight: 600; color: var(--sub); background: none; border: none; outline: none; cursor: pointer; padding: 0; margin-top: 3px; font-family: inherit; width: 100%; }
+.cp-status-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.cp-status-btn { padding: 5px 11px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1.5px solid var(--border); background: white; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+.cp-status-btn:hover { border-color: var(--accent); color: var(--accent); }
+.cp-status-btn.active[data-status="applied"] { background: #eff6ff; border-color: var(--accent); color: var(--accent); }
+.cp-status-btn.active[data-status="screening"] { background: #fffbeb; border-color: var(--yellow); color: var(--yellow); }
+.cp-status-btn.active[data-status="interview"] { background: #f0fdf4; border-color: var(--green); color: var(--green); }
+.cp-status-btn.active[data-status="offer"] { background: #faf5ff; border-color: var(--purple); color: var(--purple); }
+.cp-status-btn.active[data-status="rejected"] { background: #fef2f2; border-color: #dc2626; color: #dc2626; }
+.cp-status-btn.active[data-status="withdrawn"] { background: var(--bg); border-color: var(--muted); color: var(--muted); }
 .cp-gen-btn { width: 100%; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
 .cp-gen-btn:hover { opacity: 0.9; }
 .cp-gen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -313,7 +321,7 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 
 /* Contacts */
 .cp-section-header { display: flex; align-items: center; justify-content: space-between; }
-.cp-add-contact-btn { font-size: 11px; font-weight: 600; color: var(--accent); background: none; border: 1px solid var(--accent); border-radius: 6px; padding: 2px 8px; cursor: pointer; transition: all 0.15s; }
+.cp-add-contact-btn { font-size: 11px; font-weight: 600; color: var(--accent); background: none; border: 1px solid var(--accent); border-radius: 6px; padding: 2px 8px; cursor: pointer; transition: all 0.15s; align-self: flex-start; }
 .cp-add-contact-btn:hover { background: var(--accent-light); }
 .cp-contacts-list { display: flex; flex-direction: column; gap: 6px; }
 .cp-contact-chip { background: var(--bg); border-radius: 8px; padding: 8px 10px; display: flex; align-items: flex-start; gap: 8px; }
@@ -405,16 +413,9 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
           <div class="stat-icon" style="background:#eff6ff">📋</div>
           <div>
             <div class="stat-value" id="stat-applied" style="color:var(--accent)">0</div>
-            <div class="stat-label">Sent</div>
+            <div class="stat-label">Applications sent</div>
             <div class="stat-trend trend-neutral" id="stat-applied-sub">none yet</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:#f0fdf4">💬</div>
-          <div>
-            <div class="stat-value" id="stat-response" style="color:var(--green)">0</div>
-            <div class="stat-label">Replies</div>
-            <div class="stat-trend trend-neutral" id="stat-response-sub">none yet</div>
+            <div class="stat-trend trend-neutral" id="stat-waiting-sub" style="margin-top:2px">—</div>
           </div>
         </div>
         <div class="stat-card">

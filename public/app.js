@@ -47,19 +47,19 @@ function renderStats(data) {
   const interviews = data.stats.activeInterviews;
   const companies = (data.companies || []).length;
 
-  const active = (data.applications || []).filter(a => !['rejected', 'withdrawn'].includes(a.status)).length;
-  const replied = Math.round(applied * rate / 100);
+  const apps = data.applications || [];
+  const waiting = apps.filter(a => a.status === 'applied').length;
+  const replied = apps.filter(a => ['screening','interview','offer','rejected'].includes(a.status)).length;
 
   el('stat-applied').textContent = applied;
-  el('stat-response').textContent = replied;
   el('stat-interviews').textContent = interviews;
   el('stat-companies').textContent = companies;
 
-  el('stat-applied-sub').textContent = applied === 0 ? 'none yet' : active > 0 ? `${active} in progress` : 'all closed';
-  el('stat-applied-sub').className = `stat-trend ${active > 0 ? 'trend-up' : 'trend-neutral'}`;
+  el('stat-applied-sub').textContent = applied === 0 ? 'none yet' : replied > 0 ? `${replied} replied back` : 'no replies yet';
+  el('stat-applied-sub').className = `stat-trend ${replied > 0 ? 'trend-up' : 'trend-neutral'}`;
 
-  el('stat-response-sub').textContent = replied > 0 ? `of ${applied} sent` : 'none yet';
-  el('stat-response-sub').className = `stat-trend ${replied > 0 ? 'trend-up' : 'trend-neutral'}`;
+  el('stat-waiting-sub').textContent = waiting > 0 ? `${waiting} waiting for reply` : '';
+  el('stat-waiting-sub').className = `stat-trend trend-neutral`;
 
   el('stat-interviews-sub').textContent = interviews > 0 ? 'in progress' : 'none active';
   el('stat-interviews-sub').className = `stat-trend ${interviews > 0 ? 'trend-warn' : 'trend-neutral'}`;
@@ -431,33 +431,38 @@ async function loadCompanyData(name) {
 
 let cpContacts = [];
 
+function contactChipHtml(c, i) {
+  return `<div class="cp-contact-chip">
+    <div class="cp-contact-avatar">${esc(c.name.charAt(0).toUpperCase())}</div>
+    <div class="cp-contact-info">
+      <div class="cp-contact-name">${esc(c.name)}</div>
+      ${c.note  ? `<div class="cp-contact-note">${esc(c.note)}</div>` : ''}
+      ${c.phone ? `<div class="cp-contact-note">📞 ${esc(c.phone)}</div>` : ''}
+      ${c.email ? `<div class="cp-contact-note">✉ ${esc(c.email)}</div>` : ''}
+    </div>
+    <button class="cp-contact-del" data-idx="${i}" title="Remove">×</button>
+  </div>`;
+}
+
 function renderContactsSection(name) {
   const list = cpContacts.length > 0
-    ? cpContacts.map((c, i) => `
-      <div class="cp-contact-chip">
-        <div class="cp-contact-avatar">${esc(c.name.charAt(0).toUpperCase())}</div>
-        <div class="cp-contact-info">
-          <div class="cp-contact-name">${esc(c.name)}</div>
-          ${c.note ? `<div class="cp-contact-note">${esc(c.note)}</div>` : ''}
-        </div>
-        <button class="cp-contact-del" data-idx="${i}" title="Remove">×</button>
-      </div>`).join('')
-    : `<div class="cp-section-empty">No connections saved yet.</div>`;
+    ? cpContacts.map((c, i) => contactChipHtml(c, i)).join('')
+    : `<div class="cp-section-empty">No contact person saved yet.</div>`;
 
   return `<div class="cp-section">
-    <div class="cp-section-header">
-      <div class="cp-section-title">Connections</div>
-      <button class="cp-add-contact-btn" id="cp-add-contact-btn">+ Add</button>
-    </div>
+    <div class="cp-section-title">Contact Person</div>
     <div class="cp-contacts-list" id="cp-contacts-list">${list}</div>
     <div class="cp-contact-form" id="cp-contact-form" style="display:none">
       <input class="cp-contact-input" id="cp-contact-name-in" placeholder="Name (e.g. Sarah Cohen)" />
+      <input class="cp-contact-input" id="cp-contact-phone-in" placeholder="Phone (optional)" />
+      <input class="cp-contact-input" id="cp-contact-email-in" placeholder="Email (optional)" />
       <input class="cp-contact-input" id="cp-contact-note-in" placeholder="Note (e.g. recruiter, ping on LinkedIn first)" />
       <div class="cp-contact-actions">
         <button class="cp-contact-save-btn" id="cp-contact-save">Save</button>
         <button class="cp-contact-cancel-btn" id="cp-contact-cancel">Cancel</button>
       </div>
     </div>
+    <button class="cp-add-contact-btn" id="cp-add-contact-btn" style="margin-top:6px">+ Add Contact Person</button>
   </div>`;
 }
 
@@ -474,24 +479,29 @@ function wireContactEvents(name) {
     nameIn.focus();
   });
 
+  const clearForm = () => {
+    ['cp-contact-name-in','cp-contact-phone-in','cp-contact-email-in','cp-contact-note-in']
+      .forEach(id => { const el2 = el(id); if (el2) el2.value = ''; });
+  };
+
   cancelBtn?.addEventListener('click', () => {
     form.style.display = 'none';
     addBtn.style.display = '';
-    nameIn.value = '';
-    el('cp-contact-note-in').value = '';
+    clearForm();
   });
 
   saveBtn?.addEventListener('click', async () => {
     const cName = nameIn.value.trim();
     if (!cName) return nameIn.focus();
-    const note = el('cp-contact-note-in').value.trim();
-    cpContacts = [...cpContacts, { name: cName, note }];
+    const phone = el('cp-contact-phone-in')?.value.trim() || '';
+    const email = el('cp-contact-email-in')?.value.trim() || '';
+    const note  = el('cp-contact-note-in')?.value.trim()  || '';
+    cpContacts = [...cpContacts, { name: cName, phone, email, note }];
     await saveContacts(name, cpContacts);
     refreshContactsList(name);
     form.style.display = 'none';
     addBtn.style.display = '';
-    nameIn.value = '';
-    el('cp-contact-note-in').value = '';
+    clearForm();
   });
 
   document.querySelectorAll('.cp-contact-del').forEach(btn => {
@@ -506,16 +516,8 @@ function wireContactEvents(name) {
 
 function refreshContactsList(name) {
   const list = cpContacts.length > 0
-    ? cpContacts.map((c, i) => `
-      <div class="cp-contact-chip">
-        <div class="cp-contact-avatar">${esc(c.name.charAt(0).toUpperCase())}</div>
-        <div class="cp-contact-info">
-          <div class="cp-contact-name">${esc(c.name)}</div>
-          ${c.note ? `<div class="cp-contact-note">${esc(c.note)}</div>` : ''}
-        </div>
-        <button class="cp-contact-del" data-idx="${i}" title="Remove">×</button>
-      </div>`).join('')
-    : `<div class="cp-section-empty">No connections saved yet.</div>`;
+    ? cpContacts.map((c, i) => contactChipHtml(c, i)).join('')
+    : `<div class="cp-section-empty">No contact person saved yet.</div>`;
   el('cp-contacts-list').innerHTML = list;
   document.querySelectorAll('.cp-contact-del').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -558,12 +560,15 @@ function renderCompanyPanel(data, name) {
         <div class="cp-meta-value">${esc(application.dateApplied || '—')}</div>
       </div>
       <div class="cp-meta-item">
-        <div class="cp-meta-label">Status</div>
-        <select class="cp-status-select" id="cp-status-select" data-app-id="${esc(application.id)}">
-          ${['applied','screening','interview','offer','rejected','withdrawn'].map(s =>
-            `<option value="${s}"${s === application.status ? ' selected' : ''}>${s.charAt(0).toUpperCase() + s.slice(1)}</option>`
-          ).join('')}
-        </select>
+        <div class="cp-meta-label">Role</div>
+        <div class="cp-meta-value" style="font-size:11px">${esc(application.role)}</div>
+      </div>
+    </div>`;
+    const statuses = ['applied','screening','interview','offer','rejected','withdrawn'];
+    ov += `<div class="cp-section">
+      <div class="cp-section-title">Status</div>
+      <div class="cp-status-btns" id="cp-status-btns" data-app-id="${esc(application.id)}">
+        ${statuses.map(s => `<button class="cp-status-btn${s === application.status ? ' active' : ''}" data-status="${s}">${s.charAt(0).toUpperCase() + s.slice(1)}</button>`).join('')}
       </div>
     </div>`;
     if (application.nextAction) {
@@ -583,16 +588,18 @@ function renderCompanyPanel(data, name) {
   el('cp-view-overview').innerHTML = ov;
   wireContactEvents(name);
 
-  const statusSelect = el('cp-status-select');
-  if (statusSelect) {
-    statusSelect.addEventListener('change', async () => {
-      const newStatus = statusSelect.value;
+  const statusBtns = el('cp-status-btns');
+  if (statusBtns) {
+    statusBtns.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.cp-status-btn');
+      if (!btn) return;
+      const newStatus = btn.dataset.status;
+      statusBtns.querySelectorAll('.cp-status-btn').forEach(b => b.classList.toggle('active', b === btn));
       await fetch('/api/application', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: statusSelect.dataset.appId, status: newStatus }),
+        body: JSON.stringify({ id: statusBtns.dataset.appId, status: newStatus }),
       });
-      // update header pill instantly
       el('cp-pill').innerHTML = `<span class="pill pill-${newStatus}">${newStatus.charAt(0).toUpperCase() + newStatus.slice(1)}</span>`;
       loadDashboard();
     });
