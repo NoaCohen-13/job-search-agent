@@ -29,7 +29,7 @@ A personal AI job search agent with a web dashboard, built on the [Claude Agent 
 
 ```bash
 # 1. Clone
-git clone https://github.com/YOUR_USERNAME/job-agent
+git clone https://github.com/NoaCohen-13/job-search-agent
 cd job-agent
 
 # 2. Install
