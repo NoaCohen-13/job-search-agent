@@ -1,0 +1,10 @@
+{
+  "name": "Your Name",
+  "email": "you@email.com",
+  "phone": "your-phone",
+  "targetRole": "Junior PM",
+  "location": "Your city, hybrid/remote",
+  "industries": ["B2B SaaS", "Consumer apps", "AI/ML", "Fintech"],
+  "resumePath": "workspace/resume/base_resume.md",
+  "dealBreakers": []
+}

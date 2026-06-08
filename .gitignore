@@ -1,0 +1,13 @@
+node_modules/
+workspace/
+config.json
+data.json
+.DS_Store
+mockups/
+
+# Personal job search data (lives in workspace/ at runtime, but guard root-level copies too)
+applications/
+companies/
+notes/
+resume/
+courses/

@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JobAgent</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #f1f5f9;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --accent: #2563eb;
+  --accent-light: #eff6ff;
+  --green: #16a34a;
+  --green-light: #f0fdf4;
+  --yellow: #d97706;
+  --yellow-light: #fffbeb;
+  --purple: #7c3aed;
+  --purple-light: #faf5ff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --sub: #334155;
+  --chat-w: 370px;
+}
+body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; font-size: 14px; display: flex; flex-direction: column; }
+
+/* HEADER */
+.header { background: var(--surface); border-bottom: 1px solid var(--border); height: 58px; display: flex; align-items: center; padding: 0 24px; gap: 24px; flex-shrink: 0; }
+.logo { font-size: 17px; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 13px; }
+.tabs { display: flex; gap: 2px; flex: 1; }
+.tab { padding: 6px 14px; border-radius: 7px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.tab:hover { background: var(--bg); color: var(--sub); }
+.tab.active { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+.header-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.streak-badge { display: flex; align-items: center; gap: 5px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 20px; padding: 4px 10px; font-size: 12px; font-weight: 600; color: #ea580c; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #7c3aed); color: white; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.reset-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 5px 10px; border-radius: 7px; font-size: 11px; cursor: pointer; transition: all 0.15s; }
+.reset-btn:hover { border-color: var(--accent); color: var(--accent); }
+.chat-controls { display: flex; align-items: center; gap: 6px; }
+.history-wrap { position: relative; }
+.history-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); width: 28px; height: 28px; border-radius: 7px; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.history-btn:hover, .history-btn.open { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.history-dropdown { display: none; position: absolute; top: calc(100% + 8px); right: 0; width: 270px; background: white; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,0.1); z-index: 300; overflow: hidden; }
+.history-dropdown.open { display: block; }
+.history-dropdown-header { padding: 11px 14px 7px; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.history-new-btn { display: flex; align-items: center; gap: 8px; padding: 9px 14px; font-size: 13px; font-weight: 600; color: var(--accent); cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.15s; }
+.history-new-btn:hover { background: var(--accent-light); }
+.history-sessions { max-height: 280px; overflow-y: auto; }
+.history-sessions::-webkit-scrollbar { width: 3px; }
+.history-sessions::-webkit-scrollbar-thumb { background: var(--border); }
+.history-empty { padding: 14px; font-size: 12px; color: var(--muted); font-style: italic; }
+.history-item { display: flex; align-items: center; gap: 9px; padding: 9px 12px; cursor: pointer; transition: background 0.15s; }
+.history-item:hover { background: var(--bg); }
+.history-item-icon { width: 30px; height: 30px; background: var(--bg); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+.history-item-info { flex: 1; min-width: 0; }
+.history-item-title { font-size: 12px; font-weight: 600; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-item-date { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.history-item-del { width: 22px; height: 22px; border: none; background: none; color: var(--muted); cursor: pointer; font-size: 12px; border-radius: 5px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: all 0.15s; flex-shrink: 0; padding: 0; }
+.history-item:hover .history-item-del { opacity: 1; }
+.history-item-del:hover { background: #fef2f2; color: #dc2626; }
+
+/* BODY */
+.body { flex: 1; display: flex; overflow: hidden; }
+
+/* DASHBOARD */
+.dashboard { flex: 1; min-width: 0; overflow-y: auto; padding: 22px 24px; display: flex; flex-direction: column; gap: 18px; }
+.dashboard::-webkit-scrollbar { width: 4px; }
+.dashboard::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* Tab views */
+.tab-view { display: none; }
+.tab-view.active { display: flex; flex-direction: column; gap: 18px; }
+
+.page-header .page-title { font-size: 19px; font-weight: 700; }
+.page-header .page-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+/* Stats */
+.stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.stat-card { background: white; border: 1px solid var(--border); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.stat-icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.stat-value { font-size: 24px; font-weight: 800; line-height: 1; }
+.stat-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.stat-trend { font-size: 11px; font-weight: 600; margin-top: 4px; }
+.trend-up { color: var(--green); }
+.trend-warn { color: var(--yellow); }
+.trend-neutral { color: var(--muted); }
+
+/* Row layouts */
+.row-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.row-2-equal { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+
+/* Cards */
+.card { background: white; border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.card-title { font-size: 12px; font-weight: 700; color: var(--sub); text-transform: uppercase; letter-spacing: 0.4px; }
+.card-action { font-size: 12px; color: var(--accent); font-weight: 500; cursor: pointer; }
+.chart-wrap { height: 148px; position: relative; }
+
+/* Pipeline */
+.pipeline-row { display: flex; gap: 10px; }
+.pipe-col { flex: 1; }
+.pipe-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.pipe-name { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.pipe-count { font-size: 11px; font-weight: 700; }
+.pipe-count.blue { color: var(--accent); }
+.pipe-count.yellow { color: var(--yellow); }
+.pipe-count.green { color: var(--green); }
+.pipe-count.purple { color: var(--purple); }
+.pipe-items { display: flex; flex-direction: column; gap: 5px; min-height: 40px; }
+.pipe-card { background: var(--bg); border-radius: 8px; padding: 7px 9px; font-size: 11px; border-left: 3px solid; }
+.pipe-card.col-blue { border-color: var(--accent); }
+.pipe-card.col-yellow { border-color: var(--yellow); }
+.pipe-card.col-green { border-color: var(--green); }
+.pipe-card.col-purple { border-color: var(--purple); }
+.pipe-card-name { font-weight: 600; }
+.pipe-card-role { color: var(--muted); font-size: 10px; margin-top: 1px; }
+.pipe-empty { font-size: 11px; color: var(--muted); font-style: italic; padding: 4px 0; }
+.pipe-card-extra { display: none; }
+.pipe-more-btn { background: none; border: none; font-size: 11px; color: var(--accent); cursor: pointer; padding: 3px 0; font-style: italic; text-align: left; transition: color 0.15s; }
+.pipe-more-btn:hover { color: var(--sub); text-decoration: underline; }
+
+/* Activity */
+.activity-list { display: flex; flex-direction: column; }
+.activity-item { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.activity-item:last-child { border-bottom: none; }
+.activity-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+.activity-text { font-size: 12px; line-height: 1.5; flex: 1; }
+.activity-time { font-size: 10px; color: var(--muted); flex-shrink: 0; white-space: nowrap; }
+.activity-empty { font-size: 12px; color: var(--muted); font-style: italic; padding: 8px 0; }
+
+/* Companies */
+.companies-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.company-card { border: 1px solid var(--border); border-radius: 10px; padding: 11px; display: flex; flex-direction: column; gap: 5px; cursor: pointer; transition: all 0.15s; min-width: 0; position: relative; }
+.company-card:hover { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.07); }
+.co-delete-btn { position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; border-radius: 4px; background: transparent; border: none; color: var(--muted); font-size: 13px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: all 0.15s; padding: 0; }
+.company-card:hover .co-delete-btn { opacity: 1; }
+.co-delete-btn:hover { background: #fef2f2; color: #dc2626; }
+.company-card.add-card { border-style: dashed; align-items: center; justify-content: center; color: var(--muted); font-size: 12px; gap: 3px; }
+.company-card.add-card:hover { border-color: var(--accent); color: var(--accent); }
+.co-logo { width: 30px; height: 30px; border-radius: 8px; font-size: 13px; font-weight: 800; color: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.co-name { font-size: 12px; font-weight: 700; }
+.co-tagline { font-size: 10px; color: var(--muted); line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.co-status { font-size: 10px; color: var(--muted); margin-top: 2px; display: flex; align-items: center; gap: 5px; }
+.co-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.co-dot.st-applied    { background: var(--accent); }
+.co-dot.st-screening  { background: var(--yellow); }
+.co-dot.st-interview  { background: #ea580c; }
+.co-dot.st-offer      { background: var(--green); }
+.co-dot.st-rejected   { background: #dc2626; }
+.co-dot.st-researched { background: var(--purple); }
+
+/* Status pills */
+.pill { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; display: inline-flex; align-items: center; }
+.pill-interview { background: var(--green-light); color: var(--green); }
+.pill-screening { background: var(--yellow-light); color: var(--yellow); }
+.pill-applied { background: var(--accent-light); color: var(--accent); }
+.pill-rejected { background: #fef2f2; color: #dc2626; }
+.pill-offer { background: var(--purple-light); color: var(--purple); }
+
+/* App list */
+.app-list { display: flex; flex-direction: column; gap: 8px; }
+.app-item { display: flex; align-items: center; gap: 11px; padding: 10px; border-radius: 10px; border: 1px solid var(--border); transition: background 0.15s; cursor: pointer; }
+.app-item:hover { background: var(--bg); }
+.app-logo { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; color: white; flex-shrink: 0; }
+.app-info { flex: 1; min-width: 0; }
+.app-company { font-size: 13px; font-weight: 700; }
+.app-role { font-size: 11px; color: var(--muted); }
+.app-right { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.app-date { font-size: 10px; color: var(--muted); }
+.app-contacts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.app-contact-chip { font-size: 10px; color: var(--accent); background: var(--accent-light); border-radius: 5px; padding: 2px 6px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.app-empty { font-size: 12px; color: var(--muted); font-style: italic; padding: 8px 0; }
+
+/* CHAT PANEL */
+.chat-panel { width: var(--chat-w); background: white; border-left: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+.chat-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.agent-avatar { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg, #2563eb, #7c3aed); display: flex; align-items: center; justify-content: center; color: white; font-size: 15px; flex-shrink: 0; }
+.agent-info .name { font-size: 14px; font-weight: 700; }
+.agent-info .status { font-size: 11px; color: var(--green); font-weight: 500; }
+.agent-info .status.thinking { color: var(--yellow); }
+.chat-messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+.chat-messages::-webkit-scrollbar { width: 3px; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--border); }
+
+.msg { display: flex; flex-direction: column; }
+.msg.user { align-items: flex-end; }
+.msg.agent { align-items: flex-start; }
+.msg-bubble { max-width: 90%; padding: 10px 13px; border-radius: 14px; font-size: 13px; line-height: 1.55; }
+.msg.user .msg-bubble { background: var(--accent); color: white; border-bottom-right-radius: 4px; }
+.msg.agent .msg-bubble { background: var(--bg); color: var(--text); border-bottom-left-radius: 4px; border: 1px solid var(--border); white-space: pre-wrap; word-break: break-word; }
+.msg-time { font-size: 10px; color: var(--muted); margin-top: 3px; padding: 0 3px; }
+
+.typing-indicator { display: flex; gap: 4px; align-items: center; padding: 12px 13px; }
+.typing-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: bounce 1.2s infinite; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-5px); } }
+
+.chat-input-wrap { padding: 12px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.chat-input-box { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 9px 12px; display: flex; gap: 8px; align-items: center; transition: border 0.15s; }
+.chat-input-box:focus-within { border-color: var(--accent); background: white; }
+.chat-input { background: transparent; border: none; outline: none; font-size: 13px; color: var(--text); flex: 1; resize: none; font-family: inherit; }
+.chat-input::placeholder { color: #94a3b8; }
+.send-btn { width: 28px; height: 28px; border-radius: 7px; background: var(--accent); border: none; color: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: opacity 0.15s; }
+.send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.shortcuts { display: flex; gap: 5px; margin-top: 7px; flex-wrap: wrap; }
+.shortcut { background: white; border: 1px solid var(--border); border-radius: 20px; padding: 3px 9px; font-size: 11px; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+.shortcut:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Loading skeleton */
+.skeleton { background: linear-gradient(90deg, #f0f4f8 25%, #e8eef4 50%, #f0f4f8 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* FAB */
+.fab { position: fixed; bottom: 28px; right: calc(var(--chat-w) + 30px); background: var(--accent); color: white; border: none; width: 50px; height: 50px; border-radius: 50%; font-size: 24px; cursor: pointer; box-shadow: 0 4px 16px rgba(37,99,235,0.4); display: flex; align-items: center; justify-content: center; transition: transform 0.15s, box-shadow 0.15s; z-index: 50; line-height: 1; }
+.fab:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(37,99,235,0.5); }
+
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.4); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(2px); }
+.modal-overlay.open { display: flex; }
+.modal { background: white; border-radius: 16px; width: 420px; box-shadow: 0 24px 48px rgba(0,0,0,0.15); overflow: hidden; animation: modal-in 0.18s ease; }
+@keyframes modal-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+.modal-header { padding: 18px 20px 0; display: flex; align-items: center; justify-content: space-between; }
+.modal-title { font-size: 15px; font-weight: 700; }
+.modal-close { background: var(--bg); border: none; width: 26px; height: 26px; border-radius: 7px; cursor: pointer; font-size: 14px; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+.modal-close:hover { background: var(--border); }
+.modal-tabs { display: flex; gap: 2px; padding: 12px 20px 0; border-bottom: 1px solid var(--border); }
+.modal-tab { padding: 7px 10px; font-size: 12px; font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; transition: color 0.15s; }
+.modal-tab:hover { color: var(--sub); }
+.modal-tab.active { color: var(--accent); border-color: var(--accent); font-weight: 600; }
+.modal-body { padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
+.modal-form { display: none; flex-direction: column; gap: 12px; }
+.modal-form.active { display: flex; }
+.mfield { display: flex; flex-direction: column; gap: 4px; }
+.mfield label { font-size: 11px; font-weight: 600; color: var(--muted); }
+.mfield input, .mfield select, .mfield textarea { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 11px; font-size: 13px; color: var(--text); outline: none; font-family: inherit; transition: border 0.15s; }
+.mfield input:focus, .mfield select:focus, .mfield textarea:focus { border-color: var(--accent); background: white; }
+.mfield input::placeholder, .mfield textarea::placeholder { color: #94a3b8; }
+.mfield textarea { resize: none; }
+.mrow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.modal-footer { padding: 0 20px 18px; display: flex; gap: 8px; }
+.modal-footer .btn-primary { flex: 1; padding: 10px; font-size: 13px; border-radius: 9px; background: var(--accent); color: white; border: none; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+.modal-footer .btn-primary:hover { opacity: 0.9; }
+.modal-footer .btn-ghost { padding: 10px 16px; border-radius: 9px; font-size: 13px; background: transparent; border: 1px solid var(--border); color: var(--muted); cursor: pointer; }
+
+/* COMPANY DETAIL PANEL */
+.company-panel { display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+.company-panel.open { display: flex; }
+.cp-header { padding: 12px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
+.cp-back { background: none; border: 1px solid var(--border); border-radius: 7px; padding: 4px 9px; font-size: 11px; color: var(--muted); cursor: pointer; flex-shrink: 0; transition: all 0.15s; }
+.cp-back:hover { border-color: var(--accent); color: var(--accent); }
+.cp-logo { width: 32px; height: 32px; border-radius: 8px; font-size: 12px; font-weight: 800; color: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #64748b; }
+.cp-meta { flex: 1; min-width: 0; }
+.cp-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cp-role { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.cp-pill { flex-shrink: 0; }
+.cp-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.cp-tab { flex: 1; padding: 10px 0; text-align: center; font-size: 12px; font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s; }
+.cp-tab:hover { color: var(--sub); }
+.cp-tab.active { color: var(--accent); border-color: var(--accent); font-weight: 600; }
+.cp-body { flex: 1; overflow-y: auto; }
+.cp-body::-webkit-scrollbar { width: 3px; }
+.cp-body::-webkit-scrollbar-thumb { background: var(--border); }
+.cp-view { display: none; padding: 16px; flex-direction: column; gap: 14px; }
+.cp-view.active { display: flex; }
+.cp-section { display: flex; flex-direction: column; gap: 6px; }
+.cp-section-title { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.cp-section-body { font-size: 12px; color: var(--sub); line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
+.cp-section-empty { font-size: 12px; color: var(--muted); font-style: italic; }
+.cp-meta-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cp-meta-item { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+.cp-meta-label { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+.cp-meta-value { font-size: 12px; font-weight: 600; color: var(--sub); margin-top: 3px; }
+.cp-gen-btn { width: 100%; padding: 10px; background: var(--accent); color: white; border: none; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+.cp-gen-btn:hover { opacity: 0.9; }
+.cp-gen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.cp-prep-content { font-size: 12px; color: var(--sub); white-space: pre-wrap; line-height: 1.7; word-break: break-word; }
+.cp-notes-textarea { width: 100%; min-height: 280px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px; font-size: 13px; color: var(--text); font-family: inherit; resize: none; outline: none; line-height: 1.6; transition: border 0.15s; }
+.cp-notes-textarea:focus { border-color: var(--accent); background: white; }
+.cp-save-indicator { font-size: 11px; color: var(--muted); text-align: right; }
+
+/* Mock interview */
+.cp-prep-start { display: flex; flex-direction: column; gap: 12px; }
+.cp-interview-area { display: none; flex-direction: column; gap: 10px; }
+.cp-interview-area.active { display: flex; }
+.cp-interview-chat { max-height: 330px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.cp-interview-chat::-webkit-scrollbar { width: 3px; }
+.cp-interview-chat::-webkit-scrollbar-thumb { background: var(--border); }
+.cp-int-msg { display: flex; flex-direction: column; gap: 3px; }
+.cp-int-msg.question { align-items: flex-start; }
+.cp-int-msg.answer { align-items: flex-end; }
+.cp-int-msg.feedback { align-items: flex-start; }
+.cp-int-label { font-size: 10px; color: var(--muted); padding: 0 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+.cp-int-bubble { max-width: 93%; padding: 9px 12px; border-radius: 12px; font-size: 12.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.cp-int-msg.question .cp-int-bubble { background: var(--accent-light); color: #1e40af; border: 1px solid #bfdbfe; border-bottom-left-radius: 4px; }
+.cp-int-msg.answer .cp-int-bubble { background: var(--sub); color: white; border-bottom-right-radius: 4px; }
+.cp-int-msg.feedback .cp-int-bubble { background: var(--green-light); color: #15803d; border: 1px solid #bbf7d0; border-bottom-left-radius: 4px; }
+.cp-int-input-wrap { border-top: 1px solid var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.cp-int-input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 9px 12px; font-size: 13px; color: var(--text); font-family: inherit; resize: none; outline: none; line-height: 1.5; transition: border 0.15s; }
+.cp-int-input:focus { border-color: var(--accent); background: white; }
+.cp-int-footer { display: flex; align-items: center; justify-content: space-between; }
+.cp-int-hint { font-size: 10px; color: var(--muted); }
+.cp-int-send { padding: 7px 16px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+.cp-int-send:hover { opacity: 0.9; }
+.cp-int-send:disabled { opacity: 0.5; cursor: not-allowed; }
+.cp-int-loading { color: var(--muted); font-style: italic; }
+.cp-int-loading::after { content: ''; animation: cp-dots 1.2s steps(3, end) infinite; }
+@keyframes cp-dots { 0%,100% { content: '.'; } 33% { content: '..'; } 66% { content: '...'; } }
+
+/* Contacts */
+.cp-section-header { display: flex; align-items: center; justify-content: space-between; }
+.cp-add-contact-btn { font-size: 11px; font-weight: 600; color: var(--accent); background: none; border: 1px solid var(--accent); border-radius: 6px; padding: 2px 8px; cursor: pointer; transition: all 0.15s; }
+.cp-add-contact-btn:hover { background: var(--accent-light); }
+.cp-contacts-list { display: flex; flex-direction: column; gap: 6px; }
+.cp-contact-chip { background: var(--bg); border-radius: 8px; padding: 8px 10px; display: flex; align-items: flex-start; gap: 8px; }
+.cp-contact-avatar { width: 26px; height: 26px; border-radius: 50%; background: #dbeafe; color: var(--accent); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.cp-contact-info { flex: 1; min-width: 0; }
+.cp-contact-name { font-size: 12px; font-weight: 600; color: var(--sub); }
+.cp-contact-note { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.cp-contact-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1; flex-shrink: 0; padding: 0 2px; }
+.cp-contact-del:hover { color: #dc2626; }
+.cp-contact-form { display: flex; flex-direction: column; gap: 7px; padding: 10px; background: var(--bg); border-radius: 9px; border: 1px dashed var(--border); }
+.cp-contact-input { background: white; border: 1px solid var(--border); border-radius: 7px; padding: 7px 10px; font-size: 12px; color: var(--text); outline: none; font-family: inherit; width: 100%; transition: border 0.15s; }
+.cp-contact-input:focus { border-color: var(--accent); }
+.cp-contact-actions { display: flex; gap: 6px; }
+.cp-contact-save-btn { background: var(--accent); color: white; border: none; border-radius: 7px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.cp-contact-cancel-btn { background: none; border: 1px solid var(--border); border-radius: 7px; padding: 6px 12px; font-size: 12px; color: var(--muted); cursor: pointer; }
+.co-contact-badge { font-size: 9px; background: #dbeafe; color: var(--accent); border-radius: 4px; padding: 1px 4px; font-weight: 700; margin-left: 3px; vertical-align: middle; }
+
+/* RESIZE HANDLE */
+.resize-handle { width: 5px; flex-shrink: 0; cursor: col-resize; background: var(--border); position: relative; transition: background 0.15s; z-index: 10; }
+.resize-handle:hover, .resize-handle.dragging { background: var(--accent); }
+/* widen the hit area without widening the visual */
+.resize-handle::before { content: ''; position: absolute; inset: 0 -5px; }
+/* grip dots */
+.resize-handle::after { content: '&#8942;'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 12px; opacity: 0; transition: opacity 0.15s; pointer-events: none; }
+.resize-handle:hover::after, .resize-handle.dragging::after { opacity: 0.8; }
+
+/* RESPONSIVE */
+/* stats-row, row-2, row-2-equal, companies-grid all use auto-fit — no breakpoint overrides needed */
+@media (max-width: 700px) {
+  body { overflow: auto; }
+  .body { flex-direction: column; overflow: visible; height: auto; }
+  .dashboard { overflow-y: visible; height: auto; }
+  .resize-handle { display: none; }
+  .chat-panel { width: 100% !important; height: 420px; border-left: none; border-top: 1px solid var(--border); flex-shrink: 0; }
+  .fab { right: 16px !important; bottom: 440px; }
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  /* auto-fill handles mobile column count */
+  .header { padding: 0 14px; gap: 12px; }
+  .streak-badge { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">◈</div>
+    JobAgent
+  </div>
+  <div class="tabs">
+    <div class="tab active" data-tab="dashboard">Dashboard</div>
+    <div class="tab" data-tab="applications">Applications</div>
+    <div class="tab" data-tab="companies">Companies</div>
+  </div>
+  <div class="header-right">
+    <div class="streak-badge" id="streak-badge">🔥 <span id="streak-count">0</span>-day streak</div>
+    <div class="chat-controls">
+      <button class="reset-btn" id="reset-btn" title="Start new conversation">↺ New chat</button>
+      <div class="history-wrap" id="history-wrap">
+        <button class="history-btn" id="history-btn" title="Chat history">🕐</button>
+        <div class="history-dropdown" id="history-dropdown">
+          <div class="history-dropdown-header">Conversations</div>
+          <div class="history-new-btn" id="history-new-btn">
+            <span style="font-size:16px;line-height:1">+</span> New conversation
+          </div>
+          <div class="history-sessions" id="history-sessions">
+            <div class="history-empty">No past conversations yet.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="avatar">NC</div>
+  </div>
+</div>
+
+<div class="body">
+  <div class="dashboard">
+
+    <!-- DASHBOARD TAB -->
+    <div class="tab-view active" id="tab-dashboard">
+
+      <div class="page-header">
+        <div class="page-title" id="greeting">Good morning 👋</div>
+        <div class="page-sub">Your job search dashboard</div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#eff6ff">📋</div>
+          <div>
+            <div class="stat-value" id="stat-applied" style="color:var(--accent)">0</div>
+            <div class="stat-label">Sent</div>
+            <div class="stat-trend trend-neutral" id="stat-applied-sub">none yet</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#f0fdf4">💬</div>
+          <div>
+            <div class="stat-value" id="stat-response" style="color:var(--green)">0</div>
+            <div class="stat-label">Replies</div>
+            <div class="stat-trend trend-neutral" id="stat-response-sub">none yet</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#fffbeb">🤝</div>
+          <div>
+            <div class="stat-value" id="stat-interviews" style="color:var(--yellow)">0</div>
+            <div class="stat-label">Active interviews</div>
+            <div class="stat-trend trend-neutral" id="stat-interviews-sub">none active</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#faf5ff">🔍</div>
+          <div>
+            <div class="stat-value" id="stat-companies" style="color:var(--purple)">0</div>
+            <div class="stat-label">Companies tracked</div>
+            <div class="stat-trend trend-neutral" id="stat-companies-sub">start researching</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Application Pipeline</div>
+          </div>
+          <div class="pipeline-row" id="pipeline-row">
+            <!-- injected by JS -->
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Weekly Activity</div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="activity-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="row-2-equal">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Recent Activity</div>
+          </div>
+          <div class="activity-list" id="activity-list">
+            <div class="activity-empty">No activity yet — start by logging an application.</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Companies on Radar</div>
+            <div class="card-action" id="add-company-btn">+ Add</div>
+          </div>
+          <div class="companies-grid" id="companies-grid">
+            <!-- injected by JS -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- APPLICATIONS TAB -->
+    <div class="tab-view" id="tab-applications">
+      <div class="page-header">
+        <div class="page-title">Applications</div>
+        <div class="page-sub">All roles you've applied to or are tracking</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">All Applications</div>
+        </div>
+        <div class="app-list" id="app-list-full">
+          <div class="app-empty">No applications yet. Tell the agent "I applied to [role] at [company]" to get started.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPANIES TAB -->
+    <div class="tab-view" id="tab-companies">
+      <div class="page-header">
+        <div class="page-title">Companies</div>
+        <div class="page-sub">Companies you've researched or applied to</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">All Companies</div>
+          <div class="card-action" id="add-company-tab-btn">+ Add company</div>
+        </div>
+        <div class="companies-grid" id="companies-grid-full">
+          <!-- injected by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPANY DETAIL PANEL -->
+    <div class="company-panel" id="company-panel">
+    <div class="cp-header">
+      <button class="cp-back" id="cp-back">← Back</button>
+      <div class="cp-logo" id="cp-logo">TX</div>
+      <div class="cp-meta">
+        <div class="cp-name" id="cp-name">Company</div>
+        <div class="cp-role" id="cp-role"></div>
+      </div>
+      <span class="cp-pill" id="cp-pill"></span>
+    </div>
+    <div class="cp-tabs">
+      <div class="cp-tab active" data-cp-tab="overview">Overview</div>
+      <div class="cp-tab" data-cp-tab="prep">Interview Prep</div>
+      <div class="cp-tab" data-cp-tab="notes">Notes</div>
+    </div>
+    <div class="cp-body" id="cp-body">
+      <div class="cp-view active" id="cp-view-overview"></div>
+      <div class="cp-view" id="cp-view-prep"></div>
+      <div class="cp-view" id="cp-view-notes"></div>
+    </div>
+  </div>
+  </div>
+
+  <div class="resize-handle" id="resize-handle" title="Drag to resize · Double-click to reset"></div>
+
+  <!-- CHAT PANEL -->
+  <div class="chat-panel" id="chat-panel">
+    <div class="chat-header">
+      <div class="agent-avatar">◈</div>
+      <div class="agent-info">
+        <div class="name">Job Agent</div>
+        <div class="status" id="agent-status">● Ready</div>
+      </div>
+    </div>
+    <div class="chat-messages" id="chat-messages">
+      <div class="msg agent">
+        <div class="msg-bubble">Hey! I'm your job search agent. Tell me about a role you're interested in, or try one of the shortcuts below.</div>
+        <div class="msg-time">now</div>
+      </div>
+    </div>
+    <div class="chat-input-wrap">
+      <div class="chat-input-box">
+        <textarea class="chat-input" id="chat-input" placeholder="Message your agent…" rows="1"></textarea>
+        <button class="send-btn" id="send-btn">↑</button>
+      </div>
+      <div class="shortcuts">
+        <div class="shortcut" data-cmd="/apply">/apply</div>
+        <div class="shortcut" data-cmd="/research">/research</div>
+        <div class="shortcut" data-cmd="/tailor">/tailor</div>
+        <div class="shortcut" data-cmd="/prep">/prep</div>
+        <div class="shortcut" data-cmd="/weekly">/weekly</div>
+        <div class="shortcut" data-cmd="/skills">/skills</div>
+      </div>
+    </div>
+  </div><!-- end chat-panel -->
+</div>
+
+<!-- Floating action button -->
+<button class="fab" id="fab-btn" title="Quick action">+</button>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Quick Action</div>
+      <button class="modal-close" id="modal-close">✕</button>
+    </div>
+    <div class="modal-tabs">
+      <div class="modal-tab active" data-modal-tab="apply">📋 Log Application</div>
+      <div class="modal-tab" data-modal-tab="update">↗ Update Status</div>
+      <div class="modal-tab" data-modal-tab="research">🔍 Add Company</div>
+    </div>
+    <div class="modal-body">
+
+      <!-- Apply form -->
+      <div class="modal-form active" id="modal-form-apply">
+        <div class="mrow">
+          <div class="mfield">
+            <label>Company *</label>
+            <input id="mf-company" placeholder="e.g. Monday.com" />
+          </div>
+          <div class="mfield">
+            <label>Role *</label>
+            <input id="mf-role" placeholder="e.g. Associate PM" />
+          </div>
+        </div>
+        <div class="mrow">
+          <div class="mfield">
+            <label>Date applied</label>
+            <input id="mf-date" type="date" />
+          </div>
+          <div class="mfield">
+            <label>Status</label>
+            <select id="mf-status">
+              <option value="applied">Applied</option>
+              <option value="screening">Screening</option>
+              <option value="interview">Interview</option>
+              <option value="offer">Offer</option>
+            </select>
+          </div>
+        </div>
+        <div class="mfield">
+          <label>Job URL or notes (optional)</label>
+          <textarea id="mf-notes" rows="2" placeholder="Paste the job URL or any notes…"></textarea>
+        </div>
+      </div>
+
+      <!-- Update status form -->
+      <div class="modal-form" id="modal-form-update">
+        <div class="mfield">
+          <label>Application</label>
+          <select id="mf-app-select"></select>
+        </div>
+        <div class="mfield">
+          <label>New status</label>
+          <select id="mf-new-status">
+            <option value="applied">Applied</option>
+            <option value="screening">Screening</option>
+            <option value="interview">Interview</option>
+            <option value="offer">Offer</option>
+            <option value="rejected">Rejected</option>
+            <option value="withdrawn">Withdrawn</option>
+          </select>
+        </div>
+        <div class="mrow">
+          <div class="mfield">
+            <label>Next action (optional)</label>
+            <input id="mf-next-action" placeholder="e.g. Send follow-up" />
+          </div>
+          <div class="mfield">
+            <label>Due date (optional)</label>
+            <input id="mf-due-date" type="date" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Research / add company form -->
+      <div class="modal-form" id="modal-form-research">
+        <div class="mfield">
+          <label>Company name *</label>
+          <input id="mf-research-company" placeholder="e.g. Fiverr" />
+        </div>
+        <div class="mfield" style="background:var(--accent-light);border-radius:8px;padding:10px 12px;">
+          <span style="font-size:12px;color:var(--accent)">The agent will search the web, save research notes, and give you positioning tips.</span>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="modal-cancel">Cancel</button>
+      <button class="btn-primary" id="modal-submit">Log application</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

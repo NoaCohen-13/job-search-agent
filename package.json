@@ -1,0 +1,13 @@
+{
+  "name": "job-agent",
+  "version": "1.0.0",
+  "description": "AI-powered job search agent built on the Claude Agent SDK",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "latest",
+    "express": "^4.19.0"
+  }
+}
