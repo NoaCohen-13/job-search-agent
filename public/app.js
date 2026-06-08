@@ -211,7 +211,7 @@ function renderApplicationsList(data) {
       ? `<div class="app-contacts">${contacts.map(c => `<span class="app-contact-chip">👤 ${esc(c.name)}</span>`).join('')}</div>`
       : '';
 
-    return `<div class="app-item">
+    return `<div class="app-item" data-company="${esc(a.company)}">
       <div class="app-logo" style="background:${color}">${initials}</div>
       <div class="app-info">
         <div class="app-company">${esc(a.company)}</div>
@@ -559,7 +559,11 @@ function renderCompanyPanel(data, name) {
       </div>
       <div class="cp-meta-item">
         <div class="cp-meta-label">Status</div>
-        <div class="cp-meta-value">${application.status.charAt(0).toUpperCase() + application.status.slice(1)}</div>
+        <select class="cp-status-select" id="cp-status-select" data-app-id="${esc(application.id)}">
+          ${['applied','screening','interview','offer','rejected','withdrawn'].map(s =>
+            `<option value="${s}"${s === application.status ? ' selected' : ''}>${s.charAt(0).toUpperCase() + s.slice(1)}</option>`
+          ).join('')}
+        </select>
       </div>
     </div>`;
     if (application.nextAction) {
@@ -578,6 +582,21 @@ function renderCompanyPanel(data, name) {
   </div>`;
   el('cp-view-overview').innerHTML = ov;
   wireContactEvents(name);
+
+  const statusSelect = el('cp-status-select');
+  if (statusSelect) {
+    statusSelect.addEventListener('change', async () => {
+      const newStatus = statusSelect.value;
+      await fetch('/api/application', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: statusSelect.dataset.appId, status: newStatus }),
+      });
+      // update header pill instantly
+      el('cp-pill').innerHTML = `<span class="pill pill-${newStatus}">${newStatus.charAt(0).toUpperCase() + newStatus.slice(1)}</span>`;
+      loadDashboard();
+    });
+  }
 
   // Interview Prep
   renderPrepTab(name, interviewNotes, application);
@@ -791,6 +810,10 @@ function initCompanyPanel() {
     const card = e.target.closest('.company-card:not(.add-card)');
     if (card && card.dataset.company) {
       openCompanyPanel(card.dataset.company);
+    }
+    const appItem = e.target.closest('.app-item[data-company]');
+    if (appItem) {
+      openCompanyPanel(appItem.dataset.company);
     }
   });
 }
