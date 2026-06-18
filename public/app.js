@@ -270,13 +270,20 @@ function renderDiscover(data) {
     </div>`).join('');
 
   resultsEl.querySelectorAll('.discover-save-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
+      if (isStreaming) return;
       const company = btn.dataset.company;
       const role = btn.dataset.role;
-      const idx = parseInt(btn.dataset.idx) + 1;
+      const idx = parseInt(btn.dataset.idx);
+      // disable all save buttons immediately so rapid clicks can't queue
+      resultsEl.querySelectorAll('.discover-save-btn').forEach(b => b.disabled = true);
+      // auto-dismiss this result from discover
+      await fetch(`/api/discover/result?idx=${idx}`, { method: 'DELETE' });
+      await loadDiscover();
+      // send to agent
       const input = el('chat-input');
       if (!input) return;
-      input.value = `Save #${idx} ${company} from discover results and score my fit`;
+      input.value = `Save ${company} from discover results and score my fit`;
       input.dispatchEvent(new Event('input'));
       el('send-btn')?.click();
     });
