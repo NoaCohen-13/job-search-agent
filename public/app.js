@@ -1289,6 +1289,10 @@ function openModal(tab = 'apply') {
     `<option value="${esc(a.id)}">${esc(a.company)} — ${esc(a.role)}</option>`
   ).join('') || '<option value="">No applications yet</option>';
 
+  // pre-fill find fields from saved profile
+  if (el('mf-find-role') && userProfile?.targetRole) el('mf-find-role').value = userProfile.targetRole;
+  if (el('mf-find-location') && userProfile?.location) el('mf-find-location').value = userProfile.location;
+
   // switch to the right tab
   switchModalTab(tab);
   el('modal-overlay').classList.add('open');
@@ -1297,7 +1301,7 @@ function openModal(tab = 'apply') {
 function closeModal() {
   el('modal-overlay').classList.remove('open');
   // clear inputs
-  ['mf-company','mf-role','mf-notes','mf-next-action','mf-research-company'].forEach(id => {
+  ['mf-company','mf-role','mf-notes','mf-next-action','mf-research-company','mf-find-role','mf-find-location'].forEach(id => {
     const e = el(id); if (e) e.value = '';
   });
 }
@@ -1309,8 +1313,8 @@ function switchModalTab(tab) {
   document.querySelectorAll('.modal-form').forEach(f =>
     f.classList.toggle('active', f.id === `modal-form-${tab}`));
 
-  const labels = { apply: 'Log application', update: 'Update status', research: 'Research company' };
-  el('modal-submit').textContent = labels[tab];
+  const labels = { apply: 'Log application', update: 'Update status', research: 'Research company', find: 'Find jobs' };
+  el('modal-submit').textContent = labels[tab] || 'Submit';
 }
 
 async function submitModal() {
@@ -1344,6 +1348,22 @@ async function submitModal() {
     if (!company) { el('mf-research-company').focus(); return; }
     closeModal();
     await sendMessage(`research ${company}`);
+
+  } else if (currentModalTab === 'find') {
+    const role = el('mf-find-role').value.trim();
+    const location = el('mf-find-location').value.trim();
+    if (!role) { el('mf-find-role').focus(); return; }
+    if (!location) { el('mf-find-location').focus(); return; }
+    // save as profile defaults for future use
+    await fetch('/api/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetRole: role, location }),
+    });
+    userProfile = { targetRole: role, location };
+    closeModal();
+    switchTab('discover');
+    await sendMessage(`/find ${role} ${location}`);
   }
 }
 

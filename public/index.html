@@ -700,6 +700,7 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
       <div class="modal-tab active" data-modal-tab="apply">📋 Log Application</div>
       <div class="modal-tab" data-modal-tab="update">↗ Update Status</div>
       <div class="modal-tab" data-modal-tab="research">🔍 Add Company</div>
+      <div class="modal-tab" data-modal-tab="find">✦ Find Jobs</div>
     </div>
     <div class="modal-body">
 
@@ -773,6 +774,21 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
         </div>
         <div class="mfield" style="background:var(--accent-light);border-radius:8px;padding:10px 12px;">
           <span style="font-size:12px;color:var(--accent)">The agent will search the web, save research notes, and give you positioning tips.</span>
+        </div>
+      </div>
+
+      <!-- Find jobs form -->
+      <div class="modal-form" id="modal-form-find">
+        <div class="mfield">
+          <label>Target role *</label>
+          <input id="mf-find-role" placeholder="e.g. Product Manager, Associate PM" />
+        </div>
+        <div class="mfield">
+          <label>Location *</label>
+          <input id="mf-find-location" placeholder="e.g. Tel Aviv, Remote" />
+        </div>
+        <div class="mfield" style="background:var(--accent-light);border-radius:8px;padding:10px 12px;">
+          <span style="font-size:12px;color:var(--accent)">The agent will search LinkedIn, Indeed, and Glassdoor and show results in the Discover tab.</span>
         </div>
       </div>
 
