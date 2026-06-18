@@ -117,7 +117,52 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .pipe-card.col-purple { border-color: var(--purple); }
 .pipe-card-name { font-weight: 600; }
 .pipe-card-role { color: var(--muted); font-size: 10px; margin-top: 1px; }
+.pipe-card-foot { margin-top: 5px; }
 .pipe-empty { font-size: 11px; color: var(--muted); font-style: italic; padding: 4px 0; }
+
+/* ATS fit dot */
+.ats-dot { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; }
+.ats-dot::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.ats-dot.hi  { color: var(--green);  } .ats-dot.hi::before  { background: var(--green); }
+.ats-dot.mid { color: var(--yellow); } .ats-dot.mid::before { background: var(--yellow); }
+.ats-dot.lo  { color: #dc2626;       } .ats-dot.lo::before  { background: #dc2626; }
+
+/* Resume Fit tab */
+.ats-score-card { background: var(--bg); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.ats-score-top { display: flex; align-items: center; gap: 14px; }
+.ats-ring { position: relative; width: 64px; height: 64px; flex-shrink: 0; }
+.ats-ring svg { transform: rotate(-90deg); }
+.ats-ring-num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; }
+.ats-ring-num.hi  { color: var(--green); }
+.ats-ring-num.mid { color: var(--yellow); }
+.ats-ring-num.lo  { color: #dc2626; }
+.ats-verdict { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+.ats-reco { font-size: 11px; color: var(--muted); line-height: 1.55; }
+.ats-rescore-btn { font-size: 11px; font-weight: 600; color: var(--accent); background: none; border: 1px solid #bfdbfe; border-radius: 6px; padding: 3px 9px; cursor: pointer; align-self: flex-start; transition: background 0.15s; }
+.ats-rescore-btn:hover { background: var(--accent-light); }
+.ats-gaps { display: flex; flex-direction: column; gap: 4px; }
+.ats-gap-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 9px; background: white; border-radius: 7px; }
+.ats-gap-left { display: flex; align-items: center; gap: 7px; }
+.ats-gap-indicator { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.ats-gap-indicator.mid { background: var(--yellow); }
+.ats-gap-indicator.lo  { background: #dc2626; }
+.ats-gap-kw { font-size: 11px; font-weight: 600; color: var(--sub); }
+.ats-gap-note { font-size: 10px; color: var(--muted); }
+.ats-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px; text-align: center; background: var(--bg); border-radius: 10px; border: 1px dashed var(--border); }
+.ats-empty-text { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.ats-empty-text code { background: white; border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-size: 11px; color: var(--sub); }
+.ats-run-btn { font-size: 12px; font-weight: 600; background: var(--accent); color: white; border: none; border-radius: 8px; padding: 8px 18px; cursor: pointer; }
+
+/* Step flow */
+.ats-flow-steps { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: center; margin-bottom: 4px; }
+.ats-step { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ats-step-circle { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--border); background: white; font-size: 11px; font-weight: 700; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+.ats-step-label { font-size: 10px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.ats-step.done .ats-step-circle { background: var(--green-light); border-color: var(--green); color: var(--green); }
+.ats-step.done .ats-step-label { color: var(--green); }
+.ats-step.active .ats-step-circle { background: var(--accent); border-color: var(--accent); color: white; }
+.ats-step.active .ats-step-label { color: var(--accent); font-weight: 700; }
+.ats-step-arrow { font-size: 11px; color: var(--border); margin: 0 2px; padding-bottom: 14px; }
 .pipe-card-extra { display: none; }
 .pipe-more-btn { background: none; border: none; font-size: 11px; color: var(--accent); cursor: pointer; padding: 3px 0; font-style: italic; text-align: left; transition: color 0.15s; }
 .pipe-more-btn:hover { color: var(--sub); text-decoration: underline; }
@@ -324,12 +369,16 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .cp-add-contact-btn { font-size: 11px; font-weight: 600; color: var(--accent); background: none; border: 1px solid var(--accent); border-radius: 6px; padding: 2px 8px; cursor: pointer; transition: all 0.15s; align-self: flex-start; }
 .cp-add-contact-btn:hover { background: var(--accent-light); }
 .cp-contacts-list { display: flex; flex-direction: column; gap: 6px; }
-.cp-contact-chip { background: var(--bg); border-radius: 8px; padding: 8px 10px; display: flex; align-items: flex-start; gap: 8px; }
+.cp-contact-chip { background: var(--bg); border-radius: 8px; padding: 8px 10px; display: flex; align-items: center; gap: 8px; }
 .cp-contact-avatar { width: 26px; height: 26px; border-radius: 50%; background: #dbeafe; color: var(--accent); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.cp-contact-info { flex: 1; min-width: 0; }
+.cp-contact-info { min-width: 0; }
 .cp-contact-name { font-size: 12px; font-weight: 600; color: var(--sub); }
 .cp-contact-note { font-size: 11px; color: var(--muted); margin-top: 2px; }
-.cp-contact-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1; flex-shrink: 0; padding: 0 2px; }
+.cp-contact-actions-wrap { display: flex; gap: 2px; flex-shrink: 0; }
+.cp-contact-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px; border-radius: 4px; }
+.cp-contact-del:hover { background: #fef2f2; color: #dc2626; }
+.cp-contact-edit { background: none; border: none; cursor: pointer; font-size: 12px; line-height: 1; padding: 2px 4px; border-radius: 4px; }
+.cp-contact-edit:hover { background: var(--accent-light); }
 .cp-contact-del:hover { color: #dc2626; }
 .cp-contact-form { display: flex; flex-direction: column; gap: 7px; padding: 10px; background: var(--bg); border-radius: 9px; border: 1px dashed var(--border); }
 .cp-contact-input { background: white; border: 1px solid var(--border); border-radius: 7px; padding: 7px 10px; font-size: 12px; color: var(--text); outline: none; font-family: inherit; width: 100%; transition: border 0.15s; }
@@ -523,11 +572,13 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
     </div>
     <div class="cp-tabs">
       <div class="cp-tab active" data-cp-tab="overview">Overview</div>
+      <div class="cp-tab" data-cp-tab="fit">Resume Fit</div>
       <div class="cp-tab" data-cp-tab="prep">Interview Prep</div>
       <div class="cp-tab" data-cp-tab="notes">Notes</div>
     </div>
     <div class="cp-body" id="cp-body">
       <div class="cp-view active" id="cp-view-overview"></div>
+      <div class="cp-view" id="cp-view-fit"></div>
       <div class="cp-view" id="cp-view-prep"></div>
       <div class="cp-view" id="cp-view-notes"></div>
     </div>
@@ -560,6 +611,7 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
         <div class="shortcut" data-cmd="/apply">/apply</div>
         <div class="shortcut" data-cmd="/research">/research</div>
         <div class="shortcut" data-cmd="/tailor">/tailor</div>
+        <div class="shortcut" data-cmd="/score">/score</div>
         <div class="shortcut" data-cmd="/prep">/prep</div>
         <div class="shortcut" data-cmd="/weekly">/weekly</div>
         <div class="shortcut" data-cmd="/skills">/skills</div>

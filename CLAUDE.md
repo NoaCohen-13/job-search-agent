@@ -24,9 +24,14 @@ workspace/
       cover_letter.md       ← cover letter draft
       research.md           ← company notes
       interview_notes.md    ← created when interviews begin
+      ats_score.json        ← resume fit score (created by /score)
 
-  companies/                ← standalone research (saved but not yet applied)
-    [company-name].md
+  companies/                ← pre-application research stage
+    [company-name].md       ← research notes (flat file)
+    [company-name]/         ← pre-application working folder (created by /score or /tailor before applying)
+      job_description.md    ← JD saved before applying
+      tailored_resume.md    ← tailored resume draft
+      ats_score.json        ← fit score from pre-application scoring
 
   courses/
     learning_plan.md        ← skill gaps + course tracking
@@ -48,8 +53,9 @@ workspace/
 1. Add a row to `workspace/applications/tracker.md` with status **Applied**.
 2. Create folder `workspace/applications/[company-name]/`.
 3. If a job description is provided, save it to `job_description.md` in that folder.
-4. Ask if they want a tailored resume or cover letter — if yes, do it (see workflow 3).
-5. Check `workspace/companies/[company-name].md` — if company research exists, surface the highlights.
+4. **Promote pre-application files:** if `workspace/companies/[company-name]/` exists, copy all files from it into the new application folder (JD, tailored resume, score, etc.), then delete the pre-application folder.
+5. Ask if they want a tailored resume or cover letter — if yes, do it (see workflow 3).
+6. Check `workspace/companies/[company-name].md` — if company research exists, surface the highlights.
 
 ### 2. Research a Company — `Research [company]`
 1. Use web search to gather: what the company does, recent news, product areas, culture signals, funding stage, PM team size/structure.
@@ -58,11 +64,15 @@ workspace/
 
 ### 3. Tailor Resume / Cover Letter — `Tailor for [company/role]`
 1. Read `workspace/resume/base_resume.md` as the foundation — never alter the base file.
-2. Read the job description from `workspace/applications/[company-name]/job_description.md`.
+2. Find the job description — check in order:
+   - `workspace/applications/[company-name]/job_description.md` (if already applied)
+   - `workspace/companies/[company-name]/job_description.md` (if pre-application stage)
+   - If neither exists, ask the user to paste the JD and save it to the pre-application folder.
 3. Identify the top 3-5 skills/keywords the JD emphasizes.
 4. Rewrite the resume summary and reorder/rephrase bullet points to match — do not fabricate experience.
-5. Save the tailored version to `workspace/applications/[company-name]/tailored_resume.md`.
-6. Draft a cover letter if requested and save to `workspace/applications/[company-name]/cover_letter.md`.
+5. Save the tailored version to the same folder the JD came from (`tailored_resume.md`).
+6. Draft a cover letter if requested and save alongside (`cover_letter.md`).
+7. Suggest running `/score [company]` next to see how much the tailoring improved the match.
 
 ### 4. Weekly Pipeline Review — `Weekly review` or every Monday
 1. Open `workspace/applications/tracker.md`.
@@ -79,12 +89,79 @@ workspace/
 3. Cross-reference with resume — identify gaps.
 4. Update `workspace/courses/learning_plan.md` with the top gaps and recommended resources.
 
-### 6. Interview Prep — `Prep for [company] interview`
+### 6. Score Resume Fit — `/score [company]`
+This works both **before and after applying**. Run it to check fit, tailor, then re-score before submitting.
+
+**Step 1 — Locate files:**
+- Slug the company name (lowercase, hyphens).
+- If applied: use `workspace/applications/[slug]/` as the working folder.
+- If not yet applied: use `workspace/companies/[slug]/` as the working folder (create it if needed).
+
+**Step 2 — Find the JD:**
+- Look for `job_description.md` in the working folder.
+- If missing, ask the user to paste the JD. Save it to `[working-folder]/job_description.md` before continuing.
+
+**Step 3 — Find the resume:**
+- Check `[working-folder]/tailored_resume.md` — use it if it exists (`resumeUsed: "tailored"`).
+- Otherwise use `workspace/resume/base_resume.md` (`resumeUsed: "base"`).
+
+**Step 4 — Score:**
+- Extract the top skills, tools, and keywords the JD emphasizes (frequency + prominence).
+- Cross-reference with the resume: identify which JD keywords are present, weak, or absent.
+- Compute a match score (0–100 integer).
+- Identify 3–5 missing or underemphasized keywords with JD frequency and severity (`"mid"` = weak in resume, `"lo"` = absent).
+- Write one short actionable recommendation.
+
+**Step 5 — Check for previous score:**
+- Read `[working-folder]/ats_score.json` if it exists — note the previous score to show the delta.
+
+**Step 6 — Save:**
+```json
+{
+  "score": 84,
+  "verdict": "Strong match",
+  "recommendation": "Add 'A/B testing' and 'SQL' to your resume summary.",
+  "gaps": [
+    { "keyword": "A/B testing", "count": 3, "severity": "mid" },
+    { "keyword": "SQL", "count": 2, "severity": "mid" },
+    { "keyword": "LTV modeling", "count": 0, "severity": "lo" }
+  ],
+  "resumeUsed": "tailored",
+  "scoredAt": "<ISO timestamp>"
+}
+```
+
+**Step 7 — Reply:**
+- Report the score, verdict, delta if re-scoring (e.g. "up from 61% → 84%"), and top gaps.
+- If not yet applied and score is strong (≥75%), suggest applying. If weak (<55%), suggest tailoring first with `/tailor [company]`.
+
+### 7. Interview Prep — `Prep for [company] interview`
 1. Read `workspace/applications/[company-name]/research.md` and `job_description.md`.
 2. Generate 10 likely interview questions (behavioral + product sense) tailored to the role.
 3. For each behavioral question, suggest a STAR-format answer structure based on the user's resume.
 4. Save to `workspace/applications/[company-name]/interview_notes.md`.
 5. Optionally, offer to schedule a mock interview session.
+
+---
+
+## Proactive Behavior
+
+### JD Detection
+If the user pastes a block of text that looks like a job description (contains a role title, requirements, responsibilities, or qualifications) **without using a slash command**, do the following automatically:
+1. Identify the company and role from the text (ask if unclear).
+2. Save it to `workspace/companies/[slug]/job_description.md`.
+3. Immediately offer: *"Saved the JD. Want me to score your fit before you apply? I'll check your resume against it now."*
+4. If they say yes (or don't object), run the scoring workflow and show the result.
+5. After scoring: if fit is weak, offer to tailor right away. If fit is strong, suggest applying.
+
+### Post-Score Nudges
+After every `/score` result, always end with one of:
+- **Score < 55%** — *"Fit is weak — want me to tailor your resume now to close these gaps? I can do it right away."*
+- **Score 55–74%** — *"Decent fit but there's room to improve. Want me to tailor the resume before you apply?"*
+- **Score ≥ 75%** — *"Strong match. Ready to apply? Tell me the role title and I'll log it."*
+
+### Post-Tailor Nudge
+After every `/tailor`, always end with: *"Resume saved. Run `/score [company]` to see how much the tailoring improved your fit."*
 
 ---
 

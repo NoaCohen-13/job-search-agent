@@ -83,11 +83,14 @@ function renderPipeline(data) {
   const container = el('pipeline-row');
   container.innerHTML = stages.map(stage => {
     const items = apps.filter(a => a.status === stage.key);
-    const makeCard = (a, hidden) =>
-      `<div class="pipe-card ${stage.cls}${hidden ? ' pipe-card-extra' : ''}">
+    const makeCard = (a, hidden) => {
+      const dot = a.atsScore ? `<div class="pipe-card-foot">${atsFitDot(a.atsScore.score)}</div>` : '';
+      return `<div class="pipe-card ${stage.cls}${hidden ? ' pipe-card-extra' : ''}">
         <div class="pipe-card-name">${esc(a.company)}</div>
         <div class="pipe-card-role">${esc(a.role)}</div>
+        ${dot}
       </div>`;
+    };
 
     const cards = items.length > 0
       ? items.slice(0, 3).map(a => makeCard(a, false)).join('')
@@ -385,6 +388,123 @@ async function sendMessage(text) {
   }
 }
 
+// ── ATS helpers ────────────────────────────────────────────────────────────
+function atsFitDot(score) {
+  const cls   = score >= 75 ? 'hi' : score >= 55 ? 'mid' : 'lo';
+  const label = score >= 75 ? 'Good fit' : score >= 55 ? 'Partial fit' : 'Weak fit';
+  return `<span class="ats-dot ${cls}">${label}</span>`;
+}
+
+function renderFitTab(application, atsScore, hasJd, hasTailored) {
+  const view = el('cp-view-fit');
+  if (!view) return;
+  const score = atsScore || application?.atsScore;
+  const company = application?.company || cpCurrentCompany || '';
+  const isApplied = !!application;
+
+  if (!score) {
+    // Infer current step: 1=no JD, 2=has JD no score, 3=scored+tailored needs rescore, 4=applied
+    const step = isApplied ? 4 : hasTailored ? 3 : hasJd ? 2 : 1;
+
+    const steps = [
+      { n: 1, label: 'Paste JD',  done: hasJd || hasTailored || isApplied },
+      { n: 2, label: 'Score',     done: false, active: !isApplied },
+      { n: 3, label: 'Tailor',    done: hasTailored || isApplied },
+      { n: 4, label: 'Apply',     done: isApplied },
+    ];
+
+    const stepsHtml = steps.map(s => `
+      <div class="ats-step ${s.done ? 'done' : s.active ? 'active' : ''}">
+        <div class="ats-step-circle">${s.done ? '✓' : s.n}</div>
+        <div class="ats-step-label">${s.label}</div>
+      </div>`).join('<div class="ats-step-arrow">→</div>');
+
+    const hint = step === 1
+      ? 'Paste the job description in chat — the agent will save it and offer to score your fit.'
+      : step === 2
+      ? `JD saved. Run <code>/score ${esc(company)}</code> to see how well your resume matches.`
+      : step === 3
+      ? `Resume tailored. Run <code>/score ${esc(company)}</code> again to see the improvement.`
+      : 'Application logged. Score is shown below once computed.';
+
+    const showBtn = step === 2 || step === 3;
+
+    view.innerHTML = `
+      <div class="cp-section">
+        <div class="cp-section-title">Resume Fit</div>
+        <div class="ats-empty">
+          <div class="ats-flow-steps">${stepsHtml}</div>
+          <div class="ats-empty-text">${hint}</div>
+          ${showBtn ? `<button class="ats-run-btn" id="ats-run-btn">Run score →</button>` : ''}
+        </div>
+      </div>`;
+
+    el('ats-run-btn')?.addEventListener('click', () => {
+      const input = el('chat-input');
+      if (!input) return;
+      input.value = `/score ${company}`;
+      input.dispatchEvent(new Event('input'));
+      el('send-btn')?.click();
+    });
+    return;
+  }
+
+  const { score: scoreVal, verdict, recommendation, gaps, resumeUsed, scoredAt } = score;
+  const cls = scoreVal >= 75 ? 'hi' : scoreVal >= 55 ? 'mid' : 'lo';
+  const strokeColor = cls === 'hi' ? 'var(--green)' : cls === 'mid' ? 'var(--yellow)' : '#dc2626';
+  const circ = 150.8;
+  const offset = (circ - circ * scoreVal / 100).toFixed(1);
+  const resumeLabel = resumeUsed === 'tailored' ? 'tailored resume' : 'base resume';
+  const scoredDate = scoredAt ? new Date(scoredAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+
+  const gapsHtml = (gaps || []).map(g => {
+    const dotCls = g.severity === 'lo' ? 'lo' : 'mid';
+    const noteText = g.count > 0 ? `${g.count}× in JD` : 'not on resume';
+    return `<div class="ats-gap-row">
+      <div class="ats-gap-left">
+        <div class="ats-gap-indicator ${dotCls}"></div>
+        <span class="ats-gap-kw">${esc(g.keyword)}</span>
+      </div>
+      <span class="ats-gap-note">${noteText}</span>
+    </div>`;
+  }).join('');
+
+  view.innerHTML = `
+    <div class="cp-section">
+      <div class="cp-section-title">ATS Match Score</div>
+      <div class="ats-score-card">
+        <div class="ats-score-top">
+          <div class="ats-ring">
+            <svg width="64" height="64" viewBox="0 0 64 64">
+              <circle fill="none" stroke="var(--border)" stroke-width="5" cx="32" cy="32" r="24"/>
+              <circle fill="none" stroke="${strokeColor}" stroke-width="5" stroke-linecap="round"
+                cx="32" cy="32" r="24" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"/>
+            </svg>
+            <div class="ats-ring-num ${cls}">${scoreVal}%</div>
+          </div>
+          <div>
+            <div class="ats-verdict">${esc(verdict || '')}</div>
+            <div class="ats-reco">${esc(recommendation || '')}</div>
+          </div>
+        </div>
+        <button class="ats-rescore-btn" id="ats-rescore-btn">↺ Re-score</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px">vs. your ${resumeLabel}${scoredDate ? ' · ' + scoredDate : ''}</div>
+    </div>
+    ${gaps?.length ? `<div class="cp-section">
+      <div class="cp-section-title">Missing or weak keywords</div>
+      <div class="ats-gaps">${gapsHtml}</div>
+    </div>` : ''}`;
+
+  el('ats-rescore-btn')?.addEventListener('click', () => {
+    const input = el('chat-input');
+    if (!input) return;
+    input.value = `/score ${application.company}`;
+    input.dispatchEvent(new Event('input'));
+    el('send-btn')?.click();
+  });
+}
+
 // ── Company Panel ──────────────────────────────────────────────────────────
 let cpCurrentCompany = null;
 let cpNotesTimer = null;
@@ -432,7 +552,7 @@ async function loadCompanyData(name) {
 let cpContacts = [];
 
 function contactChipHtml(c, i) {
-  return `<div class="cp-contact-chip">
+  return `<div class="cp-contact-chip" id="cp-contact-chip-${i}">
     <div class="cp-contact-avatar">${esc(c.name.charAt(0).toUpperCase())}</div>
     <div class="cp-contact-info">
       <div class="cp-contact-name">${esc(c.name)}</div>
@@ -440,7 +560,23 @@ function contactChipHtml(c, i) {
       ${c.phone ? `<div class="cp-contact-note">📞 ${esc(c.phone)}</div>` : ''}
       ${c.email ? `<div class="cp-contact-note">✉ ${esc(c.email)}</div>` : ''}
     </div>
-    <button class="cp-contact-del" data-idx="${i}" title="Remove">×</button>
+    <div class="cp-contact-actions-wrap">
+      <button class="cp-contact-edit" data-idx="${i}" title="Edit">✏️</button>
+      <button class="cp-contact-del" data-idx="${i}" title="Remove">×</button>
+    </div>
+  </div>`;
+}
+
+function contactEditFormHtml(c, i) {
+  return `<div class="cp-contact-form cp-contact-edit-form" id="cp-contact-chip-${i}" style="display:flex">
+    <input class="cp-contact-input" id="cp-edit-name-${i}" placeholder="Name" value="${esc(c.name)}" />
+    <input class="cp-contact-input" id="cp-edit-phone-${i}" placeholder="Phone (optional)" value="${esc(c.phone || '')}" />
+    <input class="cp-contact-input" id="cp-edit-email-${i}" placeholder="Email (optional)" value="${esc(c.email || '')}" />
+    <input class="cp-contact-input" id="cp-edit-note-${i}" placeholder="Note (optional)" value="${esc(c.note || '')}" />
+    <div class="cp-contact-actions">
+      <button class="cp-contact-save-btn" id="cp-edit-save-${i}">Save</button>
+      <button class="cp-contact-cancel-btn" id="cp-edit-cancel-${i}">Cancel</button>
+    </div>
   </div>`;
 }
 
@@ -504,14 +640,7 @@ function wireContactEvents(name) {
     clearForm();
   });
 
-  document.querySelectorAll('.cp-contact-del').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const idx = parseInt(btn.dataset.idx);
-      cpContacts = cpContacts.filter((_, i) => i !== idx);
-      await saveContacts(name, cpContacts);
-      refreshContactsList(name);
-    });
-  });
+  wireContactChipEvents(name);
 }
 
 function refreshContactsList(name) {
@@ -519,6 +648,10 @@ function refreshContactsList(name) {
     ? cpContacts.map((c, i) => contactChipHtml(c, i)).join('')
     : `<div class="cp-section-empty">No contact person saved yet.</div>`;
   el('cp-contacts-list').innerHTML = list;
+  wireContactChipEvents(name);
+}
+
+function wireContactChipEvents(name) {
   document.querySelectorAll('.cp-contact-del').forEach(btn => {
     btn.addEventListener('click', async () => {
       const idx = parseInt(btn.dataset.idx);
@@ -527,6 +660,36 @@ function refreshContactsList(name) {
       refreshContactsList(name);
     });
   });
+
+  document.querySelectorAll('.cp-contact-edit').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      const chip = document.getElementById(`cp-contact-chip-${idx}`);
+      if (!chip) return;
+      chip.outerHTML = contactEditFormHtml(cpContacts[idx], idx);
+      wireEditFormEvents(name, idx);
+    });
+  });
+}
+
+function wireEditFormEvents(name, idx) {
+  const saveBtn = document.getElementById(`cp-edit-save-${idx}`);
+  const cancelBtn = document.getElementById(`cp-edit-cancel-${idx}`);
+
+  saveBtn?.addEventListener('click', async () => {
+    const name2 = document.getElementById(`cp-edit-name-${idx}`)?.value.trim();
+    if (!name2) return;
+    cpContacts[idx] = {
+      name:  name2,
+      phone: document.getElementById(`cp-edit-phone-${idx}`)?.value.trim() || '',
+      email: document.getElementById(`cp-edit-email-${idx}`)?.value.trim() || '',
+      note:  document.getElementById(`cp-edit-note-${idx}`)?.value.trim()  || '',
+    };
+    await saveContacts(name, cpContacts);
+    refreshContactsList(name);
+  });
+
+  cancelBtn?.addEventListener('click', () => refreshContactsList(name));
 }
 
 async function saveContacts(companyName, contacts) {
@@ -538,7 +701,7 @@ async function saveContacts(companyName, contacts) {
 }
 
 function renderCompanyPanel(data, name) {
-  const { company, application, research, interviewNotes, userNotes } = data;
+  const { company, application, research, interviewNotes, userNotes, atsScore, hasJd, hasTailored } = data;
   cpContacts = company?.contacts || [];
   const color = company?.color || '#64748b';
   el('cp-logo').style.background = color;
@@ -604,6 +767,9 @@ function renderCompanyPanel(data, name) {
       loadDashboard();
     });
   }
+
+  // Resume Fit
+  renderFitTab(application, atsScore, hasJd, hasTailored);
 
   // Interview Prep
   renderPrepTab(name, interviewNotes, application);

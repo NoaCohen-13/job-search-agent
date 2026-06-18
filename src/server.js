@@ -70,6 +70,12 @@ function computeStreak(activity) {
 app.get('/api/data', (req, res) => {
   const data = readData();
   data.stats.streak = computeStreak(data.activity);
+  for (const app of data.applications) {
+    const scorePath = resolve(ROOT, 'workspace', 'applications', app.id, 'ats_score.json');
+    if (existsSync(scorePath)) {
+      try { app.atsScore = JSON.parse(readFileSync(scorePath, 'utf-8')); } catch {}
+    }
+  }
   res.json(data);
 });
 
@@ -102,7 +108,7 @@ app.post('/api/chat', async (req, res) => {
 
 // Direct status update — no agent needed for simple state changes
 app.patch('/api/application', (req, res) => {
-  const { id, status, nextAction, dueDate } = req.body;
+  const { id, status, nextAction, dueDate, salary } = req.body;
   const data = readData();
   const application = data.applications.find(a => a.id === id);
   if (!application) return res.status(404).json({ error: 'not found' });
@@ -110,6 +116,7 @@ app.patch('/api/application', (req, res) => {
   if (status) application.status = status;
   if (nextAction !== undefined) application.nextAction = nextAction;
   if (dueDate !== undefined) application.dueDate = dueDate;
+  if (salary !== undefined) application.salary = salary;
 
   // Recompute stats
   data.stats.activeInterviews = data.applications.filter(a => a.status === 'interview').length;
@@ -183,7 +190,28 @@ app.get('/api/company', (req, res) => {
     if (existsSync(np)) userNotes = readFileSync(np, 'utf-8');
   }
 
-  res.json({ company, application, research, interviewNotes, userNotes });
+  let atsScore = null;
+  let hasJd = false;
+  let hasTailored = false;
+  if (application) {
+    const dir = resolve(ROOT, 'workspace', 'applications', application.id);
+    const scorePath = resolve(dir, 'ats_score.json');
+    if (existsSync(scorePath)) {
+      try { atsScore = JSON.parse(readFileSync(scorePath, 'utf-8')); } catch {}
+    }
+    hasJd = existsSync(resolve(dir, 'job_description.md'));
+    hasTailored = existsSync(resolve(dir, 'tailored_resume.md'));
+  } else {
+    const slug = slugify(name);
+    const dir = resolve(ROOT, 'workspace', 'companies', slug);
+    const scorePath = resolve(dir, 'ats_score.json');
+    if (existsSync(scorePath)) {
+      try { atsScore = JSON.parse(readFileSync(scorePath, 'utf-8')); } catch {}
+    }
+    hasJd = existsSync(resolve(dir, 'job_description.md'));
+    hasTailored = existsSync(resolve(dir, 'tailored_resume.md'));
+  }
+  res.json({ company, application, research, interviewNotes, userNotes, atsScore, hasJd, hasTailored });
 });
 
 app.post('/api/company/contacts', (req, res) => {
