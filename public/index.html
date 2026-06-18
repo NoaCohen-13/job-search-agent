@@ -468,6 +468,7 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
   </div>
   <div class="tabs">
     <div class="tab active" data-tab="dashboard">Dashboard</div>
+    <div class="tab" data-tab="discover">Discover</div>
     <div class="tab" data-tab="applications">Applications</div>
     <div class="tab" data-tab="companies">Companies</div>
   </div>
@@ -571,20 +572,23 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
         </div>
       </div>
 
-      <!-- JOB DISCOVERY -->
-      <div class="discover-card" id="discover-section">
+    </div>
+
+    <!-- DISCOVER TAB -->
+    <div class="tab-view" id="tab-discover">
+      <div class="page-header">
+        <div class="page-title">Discover</div>
+        <div class="page-sub">Find open roles matching your search preferences</div>
+      </div>
+      <div class="discover-card">
         <div class="discover-header">
-          <div>
-            <div class="discover-title">Job Discovery</div>
-            <div class="discover-meta" id="discover-meta">Find open roles matching your target</div>
-          </div>
+          <div class="discover-meta" id="discover-meta">Search for roles matching your target</div>
           <button class="discover-find-btn" id="discover-find-btn">Find jobs</button>
         </div>
         <div class="discover-results" id="discover-results">
-          <div class="discover-empty" id="discover-empty">No results yet. Click "Find jobs" to search for open roles matching your target.</div>
+          <div class="discover-empty">No results yet. Click "Find jobs" to search for open roles.</div>
         </div>
       </div>
-
     </div>
 
     <!-- APPLICATIONS TAB -->

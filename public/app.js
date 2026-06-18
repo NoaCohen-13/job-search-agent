@@ -278,16 +278,16 @@ function renderDiscover(data) {
 
 function initDiscover() {
   el('discover-find-btn').addEventListener('click', () => {
+    if (!userProfile?.targetRole || !userProfile?.location) {
+      openOnboarding();
+      return;
+    }
     const input = el('chat-input');
     if (!input) return;
-    if (userProfile?.targetRole && userProfile?.location) {
-      input.value = `/find ${userProfile.targetRole} ${userProfile.location}`;
-    } else {
-      input.value = '/find ';
-      openOnboarding();
-    }
+    input.value = `/find ${userProfile.targetRole} ${userProfile.location}`;
     input.dispatchEvent(new Event('input'));
     input.focus();
+    el('send-btn')?.click();
   });
 }
 
