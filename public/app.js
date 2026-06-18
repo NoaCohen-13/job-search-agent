@@ -377,8 +377,17 @@ function renderApplicationsList(data) {
         <div class="app-date">${a.dateApplied || ''}</div>
         <span class="pill ${pillClass}">${pillLabel}</span>
       </div>
+      <button class="app-delete-btn" data-app-id="${esc(a.id)}" title="Delete">✕</button>
     </div>`;
   }).join('');
+
+  container.querySelectorAll('.app-delete-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await fetch(`/api/application?id=${encodeURIComponent(btn.dataset.appId)}`, { method: 'DELETE' });
+      await loadDashboard();
+    });
+  });
 }
 
 async function loadDashboard() {

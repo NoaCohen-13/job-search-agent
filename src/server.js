@@ -152,6 +152,21 @@ app.delete('/api/sessions/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+app.delete('/api/application', (req, res) => {
+  const { id } = req.query;
+  if (!id) return res.status(400).json({ error: 'id required' });
+  const data = readData();
+  const before = data.applications.length;
+  data.applications = data.applications.filter(a => a.id !== id);
+  if (data.applications.length === before) return res.status(404).json({ error: 'not found' });
+  data.stats.totalApplied = data.applications.length;
+  data.stats.activeInterviews = data.applications.filter(a => a.status === 'interview').length;
+  const replied = data.applications.filter(a => ['screening','interview','offer','rejected'].includes(a.status)).length;
+  data.stats.responseRate = data.stats.totalApplied > 0 ? Math.round(replied / data.stats.totalApplied * 100) : 0;
+  writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  res.json({ ok: true });
+});
+
 app.delete('/api/company', (req, res) => {
   const { name } = req.query;
   if (!name) return res.status(400).json({ error: 'name required' });
