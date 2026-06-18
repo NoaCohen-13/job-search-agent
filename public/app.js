@@ -251,7 +251,7 @@ function renderDiscover(data) {
     const ago = searchedAt ? timeAgo(searchedAt) : '';
     metaEl.textContent = `"${esc(query.role)}" in ${esc(query.location)}${ago ? ' · ' + ago : ''} · ${results.length} result${results.length !== 1 ? 's' : ''}`;
   }
-  if (refreshBtn) refreshBtn.style.display = '';
+  if (refreshBtn) { refreshBtn.style.display = ''; refreshBtn.textContent = '↺ Refresh'; refreshBtn.disabled = false; }
 
   resultsEl.innerHTML = results.map((r, i) => `
     <div class="discover-item" id="discover-item-${i}">
@@ -264,11 +264,8 @@ function renderDiscover(data) {
         ${r.url ? `<a class="discover-link" href="${esc(r.url)}" target="_blank" rel="noopener">View on ${esc(r.source || 'job board')} ↗</a>` : ''}
       </div>
       <div class="discover-actions">
+        <button class="discover-dismiss-btn" data-idx="${i}" title="Remove">✕</button>
         <button class="discover-save-btn" data-idx="${i}" data-company="${esc(r.company)}" data-role="${esc(r.role)}">Save &amp; Score</button>
-        <div class="discover-action-foot">
-          <span class="discover-source">${esc(r.source || '')}</span>
-          <button class="discover-dismiss-btn" data-idx="${i}" title="Remove">✕</button>
-        </div>
       </div>
     </div>`).join('');
 
@@ -298,13 +295,16 @@ function initDiscover() {
   el('discover-refresh-btn').addEventListener('click', () => {
     const query = lastDiscoverQuery || (userProfile ? { role: userProfile.targetRole, location: userProfile.location } : null);
     if (!query) return;
+    const resultsEl = el('discover-results');
+    const refreshBtn = el('discover-refresh-btn');
+    if (resultsEl) resultsEl.innerHTML = `<div class="discover-empty">Searching across LinkedIn, Comeet, Drushim and more…</div>`;
+    if (refreshBtn) { refreshBtn.textContent = '↺ Searching…'; refreshBtn.disabled = true; }
     const input = el('chat-input');
     if (!input) return;
     input.value = `/find ${query.role} ${query.location}`;
     input.dispatchEvent(new Event('input'));
     el('send-btn')?.click();
   });
-
 }
 
 function renderCompanies(data) {
