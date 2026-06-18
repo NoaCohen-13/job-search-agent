@@ -149,11 +149,15 @@ This works both **before and after applying**. Run it to check fit, tailor, then
 
 ### 8. Job Discovery — `/find [role] [location]`
 1. If role or location are missing from the command, read `workspace/profile.json` for defaults. If the file doesn't exist either, ask the user for both.
-2. Run 3 web searches to find open roles:
+2. Run web searches across multiple job platforms:
    - `site:linkedin.com/jobs "[role]" "[location]"`
    - `"[role]" "[location]" jobs site:indeed.com`
    - `"[role]" "[location]" jobs site:glassdoor.com`
-3. Extract up to 8 distinct job listings from the results. For each, capture: company name, role title, location, 1-sentence description, URL, source (LinkedIn / Indeed / Glassdoor).
+   - `"[role]" "[location]" site:comeet.com` — Israeli tech companies (Monday.com, Wix, etc.)
+   - `"[role]" "[location]" site:drushim.co.il` — Israel's largest job board
+   - `"[role]" "[location]" site:alljobs.co.il` — major Israeli tech board
+   - `"[role]" "[location]" site:wellfound.com` — startup/VC-backed roles globally
+3. Extract up to 10 distinct job listings from the results. For each, capture: company name, role title, location, 1-sentence description, URL, source (LinkedIn / Indeed / Glassdoor / Comeet / Drushim / AllJobs / Wellfound).
 4. Deduplicate: if the same company + role appears in multiple searches, keep one entry.
 5. Save results to `workspace/discover/latest.json` (create the folder if needed):
    ```json
