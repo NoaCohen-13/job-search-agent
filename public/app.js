@@ -265,8 +265,8 @@ function renderDiscover(data) {
       <div class="discover-actions">
         <button class="discover-save-btn" data-idx="${i}" data-company="${esc(r.company)}" data-role="${esc(r.role)}">Save &amp; Score</button>
         <span class="discover-source">${esc(r.source || '')}</span>
-        <button class="discover-dismiss-btn" data-idx="${i}" title="Remove">✕</button>
       </div>
+      <button class="discover-dismiss-btn" data-idx="${i}" title="Remove">✕</button>
     </div>`).join('');
 
   resultsEl.querySelectorAll('.discover-save-btn').forEach(btn => {

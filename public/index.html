@@ -398,7 +398,7 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .discover-refresh-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
 .discover-refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
 .discover-results { display: flex; flex-direction: column; gap: 8px; }
-.discover-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); transition: border-color 0.15s; }
+.discover-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); transition: border-color 0.15s; position: relative; }
 .discover-item:hover { border-color: #bfdbfe; }
 .discover-num { width: 20px; height: 20px; border-radius: 50%; background: var(--bg); border: 1.5px solid var(--border); font-size: 10px; font-weight: 700; color: var(--muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
 .discover-info { flex: 1; min-width: 0; }
@@ -406,11 +406,12 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .discover-role { font-size: 11px; color: var(--accent); font-weight: 600; margin-top: 1px; }
 .discover-location { font-size: 11px; color: var(--muted); }
 .discover-desc { font-size: 11px; color: var(--sub); margin-top: 4px; line-height: 1.5; }
-.discover-actions { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; flex-shrink: 0; }
+.discover-actions { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; flex-shrink: 0; }
 .discover-save-btn { background: var(--accent-light); color: var(--accent); border: 1px solid #bfdbfe; border-radius: 7px; padding: 5px 10px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
 .discover-save-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
 .discover-source { font-size: 10px; color: var(--muted); }
-.discover-dismiss-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 2px 4px; border-radius: 4px; line-height: 1; transition: all 0.15s; }
+.discover-dismiss-btn { position: absolute; top: 8px; right: 8px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; width: 20px; height: 20px; border-radius: 4px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: all 0.15s; }
+.discover-item:hover .discover-dismiss-btn { opacity: 1; }
 .discover-dismiss-btn:hover { background: #fef2f2; color: #dc2626; }
 .discover-empty { font-size: 12px; color: var(--muted); font-style: italic; line-height: 1.6; text-align: center; padding: 16px 0; }
 
