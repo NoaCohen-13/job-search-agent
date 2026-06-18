@@ -436,7 +436,7 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .onboarding-skip:hover { color: var(--sub); text-decoration: underline; }
 
 /* Settings gear in header */
-.settings-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); width: 28px; height: 28px; border-radius: 7px; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.settings-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); height: 28px; padding: 0 10px; border-radius: 7px; font-size: 12px; font-weight: 500; cursor: pointer; display: flex; align-items: center; transition: all 0.15s; white-space: nowrap; }
 .settings-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
 
 /* RESIZE HANDLE */
@@ -480,9 +480,9 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
   <div class="header-right">
     <div class="streak-badge" id="streak-badge">🔥 <span id="streak-count">0</span>-day streak</div>
     <div class="chat-controls">
-      <button class="settings-btn" id="settings-btn" title="Search preferences">⚙</button>
+      <button class="settings-btn" id="settings-btn" title="Search preferences">Settings</button>
       <div class="history-wrap" id="history-wrap">
-        <button class="history-btn" id="history-btn" title="Conversations">💬 Chats</button>
+        <button class="history-btn" id="history-btn" title="Conversations">Chats</button>
         <div class="history-dropdown" id="history-dropdown">
           <div class="history-dropdown-header">Conversations</div>
           <div class="history-new-btn" id="history-new-btn">
