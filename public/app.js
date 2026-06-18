@@ -304,7 +304,7 @@ function initDiscover() {
     if (!query) return;
     const resultsEl = el('discover-results');
     const refreshBtn = el('discover-refresh-btn');
-    if (resultsEl) resultsEl.innerHTML = `<div class="discover-empty">Searching across LinkedIn, Comeet, Drushim and more…</div>`;
+    if (resultsEl) resultsEl.innerHTML = `<div class="discover-empty">Searching LinkedIn, Comeet and Drushim — takes about 30 seconds…</div>`;
     if (refreshBtn) { refreshBtn.textContent = '↺ Searching…'; refreshBtn.disabled = true; }
     const input = el('chat-input');
     if (!input) return;
