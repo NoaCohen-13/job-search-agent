@@ -41,7 +41,7 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .reset-btn:hover { border-color: var(--accent); color: var(--accent); }
 .chat-controls { display: flex; align-items: center; gap: 6px; }
 .history-wrap { position: relative; }
-.history-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); width: 28px; height: 28px; border-radius: 7px; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.history-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); height: 28px; padding: 0 10px; border-radius: 7px; font-size: 12px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.15s; white-space: nowrap; }
 .history-btn:hover, .history-btn.open { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
 .history-dropdown { display: none; position: absolute; top: calc(100% + 8px); right: 0; width: 270px; background: white; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,0.1); z-index: 300; overflow: hidden; }
 .history-dropdown.open { display: block; }
@@ -481,9 +481,8 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
     <div class="streak-badge" id="streak-badge">🔥 <span id="streak-count">0</span>-day streak</div>
     <div class="chat-controls">
       <button class="settings-btn" id="settings-btn" title="Search preferences">⚙</button>
-      <button class="reset-btn" id="reset-btn" title="Start new conversation">↺ New chat</button>
       <div class="history-wrap" id="history-wrap">
-        <button class="history-btn" id="history-btn" title="Chat history">🕐</button>
+        <button class="history-btn" id="history-btn" title="Conversations">💬 Chats</button>
         <div class="history-dropdown" id="history-dropdown">
           <div class="history-dropdown-header">Conversations</div>
           <div class="history-new-btn" id="history-new-btn">

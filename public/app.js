@@ -1177,7 +1177,7 @@ function initListeners() {
     tab.addEventListener('click', () => switchTab(tab.dataset.tab));
   });
 
-  el('reset-btn').addEventListener('click', async () => {
+  el('reset-btn')?.addEventListener('click', async () => {
     await startNewChat();
   });
 
