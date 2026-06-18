@@ -371,18 +371,22 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .cp-section-header { display: flex; align-items: center; justify-content: space-between; }
 .cp-add-contact-btn { font-size: 11px; font-weight: 600; color: var(--accent); background: none; border: 1px solid var(--accent); border-radius: 6px; padding: 2px 8px; cursor: pointer; transition: all 0.15s; align-self: flex-start; }
 .cp-add-contact-btn:hover { background: var(--accent-light); }
-.cp-contacts-list { display: flex; flex-direction: column; gap: 6px; }
-.cp-contact-chip { background: var(--bg); border-radius: 8px; padding: 8px 10px; display: inline-flex; align-items: flex-start; gap: 8px; max-width: 100%; }
+.cp-contacts-list { display: flex; flex-direction: column; gap: 4px; }
+.cp-contact-chip { background: var(--bg); border-radius: 8px; padding: 8px 10px; display: flex; align-items: flex-start; gap: 8px; width: 100%; cursor: pointer; transition: background 0.15s; }
+.cp-contact-chip:hover { background: #e8eef6; }
 .cp-contact-avatar { width: 26px; height: 26px; border-radius: 50%; background: #dbeafe; color: var(--accent); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
-.cp-contact-info { min-width: 0; }
+.cp-contact-info { flex: 1; min-width: 0; }
 .cp-contact-name { font-size: 12px; font-weight: 600; color: var(--sub); }
 .cp-contact-note { font-size: 11px; color: var(--muted); margin-top: 2px; }
-.cp-contact-actions-wrap { display: flex; gap: 2px; flex-shrink: 0; margin-top: 1px; }
-.cp-contact-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px; border-radius: 4px; }
+.cp-contact-detail { display: none; flex-direction: column; gap: 2px; margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--border); }
+.cp-contact-chip.expanded .cp-contact-detail { display: flex; }
+.cp-contact-detail-row { font-size: 11px; color: var(--sub); display: flex; gap: 5px; }
+.cp-contact-detail-label { color: var(--muted); min-width: 40px; font-weight: 600; text-transform: uppercase; font-size: 9px; padding-top: 1px; letter-spacing: 0.3px; }
+.cp-contact-actions-wrap { display: flex; gap: 4px; flex-shrink: 0; margin-top: 1px; }
+.cp-contact-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 11px; font-weight: 500; padding: 2px 6px; border-radius: 4px; }
 .cp-contact-del:hover { background: #fef2f2; color: #dc2626; }
-.cp-contact-edit { background: none; border: none; cursor: pointer; font-size: 12px; line-height: 1; padding: 2px 4px; border-radius: 4px; }
-.cp-contact-edit:hover { background: var(--accent-light); }
-.cp-contact-del:hover { color: #dc2626; }
+.cp-contact-edit { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 11px; font-weight: 500; padding: 2px 6px; border-radius: 4px; }
+.cp-contact-edit:hover { background: var(--accent-light); color: var(--accent); }
 .cp-contact-form { display: flex; flex-direction: column; gap: 7px; padding: 10px; background: var(--bg); border-radius: 9px; border: 1px dashed var(--border); }
 .cp-contact-input { background: white; border: 1px solid var(--border); border-radius: 7px; padding: 7px 10px; font-size: 12px; color: var(--text); outline: none; font-family: inherit; width: 100%; transition: border 0.15s; }
 .cp-contact-input:focus { border-color: var(--accent); }

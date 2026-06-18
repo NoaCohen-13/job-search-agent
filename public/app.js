@@ -714,17 +714,21 @@ async function loadCompanyData(name) {
 let cpContacts = [];
 
 function contactChipHtml(c, i) {
+  const details = [
+    c.phone ? `<div class="cp-contact-detail-row"><span class="cp-contact-detail-label">Phone</span>${esc(c.phone)}</div>` : '',
+    c.email ? `<div class="cp-contact-detail-row"><span class="cp-contact-detail-label">Email</span>${esc(c.email)}</div>` : '',
+    c.note  ? `<div class="cp-contact-detail-row"><span class="cp-contact-detail-label">Note</span>${esc(c.note)}</div>` : '',
+  ].filter(Boolean).join('');
   return `<div class="cp-contact-chip" id="cp-contact-chip-${i}">
     <div class="cp-contact-avatar">${esc(c.name.charAt(0).toUpperCase())}</div>
     <div class="cp-contact-info">
       <div class="cp-contact-name">${esc(c.name)}</div>
-      ${c.note  ? `<div class="cp-contact-note">${esc(c.note)}</div>` : ''}
-      ${c.phone ? `<div class="cp-contact-note">📞 ${esc(c.phone)}</div>` : ''}
-      ${c.email ? `<div class="cp-contact-note">✉ ${esc(c.email)}</div>` : ''}
+      ${c.note && !c.phone && !c.email ? `<div class="cp-contact-note">${esc(c.note)}</div>` : ''}
+      ${details ? `<div class="cp-contact-detail">${details}</div>` : ''}
     </div>
     <div class="cp-contact-actions-wrap">
-      <button class="cp-contact-edit" data-idx="${i}" title="Edit">✏️</button>
-      <button class="cp-contact-del" data-idx="${i}" title="Remove">×</button>
+      <button class="cp-contact-edit" data-idx="${i}" title="Edit">Edit</button>
+      <button class="cp-contact-del" data-idx="${i}" title="Remove">✕</button>
     </div>
   </div>`;
 }
@@ -814,8 +818,16 @@ function refreshContactsList(name) {
 }
 
 function wireContactChipEvents(name) {
+  document.querySelectorAll('.cp-contact-chip').forEach(chip => {
+    chip.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      chip.classList.toggle('expanded');
+    });
+  });
+
   document.querySelectorAll('.cp-contact-del').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
       const idx = parseInt(btn.dataset.idx);
       cpContacts = cpContacts.filter((_, i) => i !== idx);
       await saveContacts(name, cpContacts);
@@ -824,7 +836,8 @@ function wireContactChipEvents(name) {
   });
 
   document.querySelectorAll('.cp-contact-edit').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
       const idx = parseInt(btn.dataset.idx);
       const chip = document.getElementById(`cp-contact-chip-${idx}`);
       if (!chip) return;
