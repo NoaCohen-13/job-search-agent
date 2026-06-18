@@ -261,12 +261,15 @@ function renderDiscover(data) {
         <div class="discover-role">${esc(r.role)}</div>
         <div class="discover-location">${esc(r.location || '')}</div>
         ${r.description ? `<div class="discover-desc">${esc(r.description)}</div>` : ''}
+        ${r.url ? `<a class="discover-link" href="${esc(r.url)}" target="_blank" rel="noopener">View on ${esc(r.source || 'job board')} ↗</a>` : ''}
       </div>
       <div class="discover-actions">
         <button class="discover-save-btn" data-idx="${i}" data-company="${esc(r.company)}" data-role="${esc(r.role)}">Save &amp; Score</button>
-        <span class="discover-source">${esc(r.source || '')}</span>
+        <div class="discover-action-foot">
+          <span class="discover-source">${esc(r.source || '')}</span>
+          <button class="discover-dismiss-btn" data-idx="${i}" title="Remove">✕</button>
+        </div>
       </div>
-      <button class="discover-dismiss-btn" data-idx="${i}" title="Remove">✕</button>
     </div>`).join('');
 
   resultsEl.querySelectorAll('.discover-save-btn').forEach(btn => {
@@ -302,18 +305,6 @@ function initDiscover() {
     el('send-btn')?.click();
   });
 
-  el('discover-find-btn').addEventListener('click', () => {
-    if (!userProfile?.targetRole || !userProfile?.location) {
-      openOnboarding();
-      return;
-    }
-    const input = el('chat-input');
-    if (!input) return;
-    input.value = `/find ${userProfile.targetRole} ${userProfile.location}`;
-    input.dispatchEvent(new Event('input'));
-    input.focus();
-    el('send-btn')?.click();
-  });
 }
 
 function renderCompanies(data) {
