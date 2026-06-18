@@ -395,6 +395,8 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .discover-meta { font-size: 11px; color: var(--muted); }
 .discover-find-btn { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; flex-shrink: 0; }
 .discover-find-btn:hover { opacity: 0.88; }
+.discover-clear-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+.discover-clear-btn:hover { border-color: #dc2626; color: #dc2626; }
 .discover-results { display: flex; flex-direction: column; gap: 8px; }
 .discover-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); transition: border-color 0.15s; }
 .discover-item:hover { border-color: #bfdbfe; }
@@ -408,6 +410,8 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .discover-save-btn { background: var(--accent-light); color: var(--accent); border: 1px solid #bfdbfe; border-radius: 7px; padding: 5px 10px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
 .discover-save-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
 .discover-source { font-size: 10px; color: var(--muted); }
+.discover-dismiss-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 2px 4px; border-radius: 4px; line-height: 1; transition: all 0.15s; }
+.discover-dismiss-btn:hover { background: #fef2f2; color: #dc2626; }
 .discover-empty { font-size: 12px; color: var(--muted); font-style: italic; line-height: 1.6; text-align: center; padding: 16px 0; }
 
 /* Onboarding modal */
@@ -583,7 +587,10 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
       <div class="discover-card">
         <div class="discover-header">
           <div class="discover-meta" id="discover-meta">Search for roles matching your target</div>
-          <button class="discover-find-btn" id="discover-find-btn">Find jobs</button>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="discover-clear-btn" id="discover-clear-btn" style="display:none">Clear</button>
+            <button class="discover-find-btn" id="discover-find-btn">Find jobs</button>
+          </div>
         </div>
         <div class="discover-results" id="discover-results">
           <div class="discover-empty">No results yet. Click "Find jobs" to search for open roles.</div>

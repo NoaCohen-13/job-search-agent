@@ -233,22 +233,25 @@ async function loadDiscover() {
 function renderDiscover(data) {
   const resultsEl = el('discover-results');
   const metaEl = el('discover-meta');
+  const clearBtn = el('discover-clear-btn');
   if (!resultsEl) return;
 
   if (!data || !data.results?.length) {
     resultsEl.innerHTML = '<div class="discover-empty">No results yet. Click "Find jobs" to search for open roles matching your target.</div>';
-    if (metaEl) metaEl.textContent = 'Find open roles matching your target';
+    if (metaEl) metaEl.textContent = 'Search for roles matching your target';
+    if (clearBtn) clearBtn.style.display = 'none';
     return;
   }
 
   const { results, query, searchedAt } = data;
   if (metaEl && query) {
     const ago = searchedAt ? timeAgo(searchedAt) : '';
-    metaEl.textContent = `"${esc(query.role)}" in ${esc(query.location)}${ago ? ' · ' + ago : ''}`;
+    metaEl.textContent = `"${esc(query.role)}" in ${esc(query.location)}${ago ? ' · ' + ago : ''} · ${results.length} result${results.length !== 1 ? 's' : ''}`;
   }
+  if (clearBtn) clearBtn.style.display = '';
 
   resultsEl.innerHTML = results.map((r, i) => `
-    <div class="discover-item">
+    <div class="discover-item" id="discover-item-${i}">
       <div class="discover-num">${i + 1}</div>
       <div class="discover-info">
         <div class="discover-company">${esc(r.company)}</div>
@@ -259,6 +262,7 @@ function renderDiscover(data) {
       <div class="discover-actions">
         <button class="discover-save-btn" data-idx="${i}" data-company="${esc(r.company)}" data-role="${esc(r.role)}">Save &amp; Score</button>
         <span class="discover-source">${esc(r.source || '')}</span>
+        <button class="discover-dismiss-btn" data-idx="${i}" title="Remove">✕</button>
       </div>
     </div>`).join('');
 
@@ -274,9 +278,22 @@ function renderDiscover(data) {
       el('send-btn')?.click();
     });
   });
+
+  resultsEl.querySelectorAll('.discover-dismiss-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const idx = btn.dataset.idx;
+      await fetch(`/api/discover/result?idx=${idx}`, { method: 'DELETE' });
+      await loadDiscover();
+    });
+  });
 }
 
 function initDiscover() {
+  el('discover-clear-btn').addEventListener('click', async () => {
+    await fetch('/api/discover', { method: 'DELETE' });
+    await loadDiscover();
+  });
+
   el('discover-find-btn').addEventListener('click', () => {
     if (!userProfile?.targetRole || !userProfile?.location) {
       openOnboarding();

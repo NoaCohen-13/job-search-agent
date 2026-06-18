@@ -257,6 +257,26 @@ app.get('/api/discover', (req, res) => {
   }
 });
 
+app.delete('/api/discover/result', (req, res) => {
+  const idx = parseInt(req.query.idx);
+  const discoverPath = resolve(ROOT, 'workspace', 'discover', 'latest.json');
+  if (!existsSync(discoverPath)) return res.status(404).json({ error: 'not found' });
+  try {
+    const data = JSON.parse(readFileSync(discoverPath, 'utf-8'));
+    data.results = (data.results || []).filter((_, i) => i !== idx);
+    writeFileSync(discoverPath, JSON.stringify(data, null, 2));
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'failed' });
+  }
+});
+
+app.delete('/api/discover', (req, res) => {
+  const discoverPath = resolve(ROOT, 'workspace', 'discover', 'latest.json');
+  if (existsSync(discoverPath)) writeFileSync(discoverPath, JSON.stringify(null));
+  res.json({ ok: true });
+});
+
 app.post('/api/company/notes', (req, res) => {
   const { name, notes } = req.body;
   if (!name) return res.status(400).json({ error: 'name required' });
