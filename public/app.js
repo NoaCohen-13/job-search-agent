@@ -4,6 +4,7 @@ let isStreaming = false;
 let currentBubble = null;
 let currentBubbleText = '';
 let pollTimer = null;
+let userProfile = null;
 
 const STATUS_COLORS = {
   applied: '#2563eb',
@@ -163,6 +164,131 @@ function renderActivity(data) {
       <div class="activity-time">${timeAgo(item.timestamp)}</div>
     </div>`
   ).join('');
+}
+
+// ── Profile & Onboarding ──────────────────────────────────────────────────
+async function loadProfile() {
+  try {
+    const res = await fetch('/api/profile');
+    if (res.ok) {
+      userProfile = await res.json();
+    } else {
+      userProfile = null;
+    }
+  } catch {
+    userProfile = null;
+  }
+  return userProfile;
+}
+
+function openOnboarding() {
+  el('onboarding-overlay').classList.add('open');
+  el('ob-role').value = userProfile?.targetRole || '';
+  el('ob-location').value = userProfile?.location || '';
+  setTimeout(() => el('ob-role').focus(), 100);
+}
+
+function closeOnboarding() {
+  el('onboarding-overlay').classList.remove('open');
+}
+
+async function saveProfile() {
+  const targetRole = el('ob-role').value.trim();
+  const location = el('ob-location').value.trim();
+  if (!targetRole || !location) {
+    if (!targetRole) el('ob-role').focus();
+    else el('ob-location').focus();
+    return;
+  }
+  await fetch('/api/profile', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targetRole, location }),
+  });
+  userProfile = { targetRole, location };
+  closeOnboarding();
+}
+
+function initOnboarding() {
+  el('ob-save-btn').addEventListener('click', saveProfile);
+  el('ob-skip').addEventListener('click', closeOnboarding);
+  el('settings-btn').addEventListener('click', openOnboarding);
+  el('ob-role').addEventListener('keydown', (e) => { if (e.key === 'Enter') el('ob-location').focus(); });
+  el('ob-location').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveProfile(); });
+}
+
+async function checkOnboarding() {
+  await loadProfile();
+  if (!userProfile) openOnboarding();
+}
+
+// ── Job Discovery ─────────────────────────────────────────────────────────
+async function loadDiscover() {
+  try {
+    const data = await fetch('/api/discover').then(r => r.json());
+    renderDiscover(data);
+  } catch {}
+}
+
+function renderDiscover(data) {
+  const resultsEl = el('discover-results');
+  const metaEl = el('discover-meta');
+  if (!resultsEl) return;
+
+  if (!data || !data.results?.length) {
+    resultsEl.innerHTML = '<div class="discover-empty">No results yet. Click "Find jobs" to search for open roles matching your target.</div>';
+    if (metaEl) metaEl.textContent = 'Find open roles matching your target';
+    return;
+  }
+
+  const { results, query, searchedAt } = data;
+  if (metaEl && query) {
+    const ago = searchedAt ? timeAgo(searchedAt) : '';
+    metaEl.textContent = `"${esc(query.role)}" in ${esc(query.location)}${ago ? ' · ' + ago : ''}`;
+  }
+
+  resultsEl.innerHTML = results.map((r, i) => `
+    <div class="discover-item">
+      <div class="discover-num">${i + 1}</div>
+      <div class="discover-info">
+        <div class="discover-company">${esc(r.company)}</div>
+        <div class="discover-role">${esc(r.role)}</div>
+        <div class="discover-location">${esc(r.location || '')}</div>
+        ${r.description ? `<div class="discover-desc">${esc(r.description)}</div>` : ''}
+      </div>
+      <div class="discover-actions">
+        <button class="discover-save-btn" data-idx="${i}" data-company="${esc(r.company)}" data-role="${esc(r.role)}">Save &amp; Score</button>
+        <span class="discover-source">${esc(r.source || '')}</span>
+      </div>
+    </div>`).join('');
+
+  resultsEl.querySelectorAll('.discover-save-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const company = btn.dataset.company;
+      const role = btn.dataset.role;
+      const idx = parseInt(btn.dataset.idx) + 1;
+      const input = el('chat-input');
+      if (!input) return;
+      input.value = `Save #${idx} ${company} from discover results and score my fit`;
+      input.dispatchEvent(new Event('input'));
+      el('send-btn')?.click();
+    });
+  });
+}
+
+function initDiscover() {
+  el('discover-find-btn').addEventListener('click', () => {
+    const input = el('chat-input');
+    if (!input) return;
+    if (userProfile?.targetRole && userProfile?.location) {
+      input.value = `/find ${userProfile.targetRole} ${userProfile.location}`;
+    } else {
+      input.value = '/find ';
+      openOnboarding();
+    }
+    input.dispatchEvent(new Event('input'));
+    input.focus();
+  });
 }
 
 function renderCompanies(data) {
@@ -368,6 +494,7 @@ async function sendMessage(text) {
             appendToken(event.content);
           } else if (event.type === 'done') {
             await loadDashboard();
+            await loadDiscover();
           } else if (event.type === 'error') {
             removeTyping();
             appendMessage('agent', `Error: ${event.content}`);
@@ -977,7 +1104,7 @@ function initCompanyPanel() {
       e.stopPropagation();
       const name = delBtn.dataset.deleteCompany;
       fetch(`/api/company?name=${encodeURIComponent(name)}`, { method: 'DELETE' })
-        .then(() => loadData());
+        .then(() => loadDashboard());
       return;
     }
     const card = e.target.closest('.company-card:not(.add-card)');
@@ -1301,12 +1428,16 @@ function startPolling() {
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   loadDashboard();
+  loadDiscover();
   initListeners();
   initModal();
   initCompanyPanel();
   initResize();
   initHistory();
+  initOnboarding();
+  initDiscover();
   startPolling();
+  await checkOnboarding();
 });

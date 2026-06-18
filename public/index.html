@@ -388,6 +388,52 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .cp-contact-cancel-btn { background: none; border: 1px solid var(--border); border-radius: 7px; padding: 6px 12px; font-size: 12px; color: var(--muted); cursor: pointer; }
 .co-contact-badge { font-size: 9px; background: #dbeafe; color: var(--accent); border-radius: 4px; padding: 1px 4px; font-weight: 700; margin-left: 3px; vertical-align: middle; }
 
+/* Discover section */
+.discover-card { background: white; border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+.discover-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.discover-title { font-size: 12px; font-weight: 700; color: var(--sub); text-transform: uppercase; letter-spacing: 0.4px; }
+.discover-meta { font-size: 11px; color: var(--muted); }
+.discover-find-btn { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; flex-shrink: 0; }
+.discover-find-btn:hover { opacity: 0.88; }
+.discover-results { display: flex; flex-direction: column; gap: 8px; }
+.discover-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); transition: border-color 0.15s; }
+.discover-item:hover { border-color: #bfdbfe; }
+.discover-num { width: 20px; height: 20px; border-radius: 50%; background: var(--bg); border: 1.5px solid var(--border); font-size: 10px; font-weight: 700; color: var(--muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+.discover-info { flex: 1; min-width: 0; }
+.discover-company { font-size: 13px; font-weight: 700; }
+.discover-role { font-size: 11px; color: var(--accent); font-weight: 600; margin-top: 1px; }
+.discover-location { font-size: 11px; color: var(--muted); }
+.discover-desc { font-size: 11px; color: var(--sub); margin-top: 4px; line-height: 1.5; }
+.discover-actions { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; flex-shrink: 0; }
+.discover-save-btn { background: var(--accent-light); color: var(--accent); border: 1px solid #bfdbfe; border-radius: 7px; padding: 5px 10px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+.discover-save-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
+.discover-source { font-size: 10px; color: var(--muted); }
+.discover-empty { font-size: 12px; color: var(--muted); font-style: italic; line-height: 1.6; text-align: center; padding: 16px 0; }
+
+/* Onboarding modal */
+.onboarding-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.55); display: none; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(3px); }
+.onboarding-overlay.open { display: flex; }
+.onboarding-modal { background: white; border-radius: 18px; width: 420px; box-shadow: 0 28px 56px rgba(0,0,0,0.18); overflow: hidden; animation: modal-in 0.2s ease; }
+.onboarding-head { padding: 28px 28px 0; text-align: center; }
+.onboarding-icon { width: 52px; height: 52px; background: linear-gradient(135deg, var(--accent), var(--purple)); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; color: white; margin: 0 auto 14px; }
+.onboarding-title { font-size: 17px; font-weight: 800; margin-bottom: 5px; }
+.onboarding-sub { font-size: 13px; color: var(--muted); line-height: 1.55; }
+.onboarding-body { padding: 20px 28px 24px; display: flex; flex-direction: column; gap: 14px; }
+.onboarding-field { display: flex; flex-direction: column; gap: 5px; }
+.onboarding-field label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
+.onboarding-field input { background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 10px 13px; font-size: 13px; color: var(--text); outline: none; font-family: inherit; transition: border 0.15s; }
+.onboarding-field input:focus { border-color: var(--accent); background: white; }
+.onboarding-field input::placeholder { color: #94a3b8; }
+.onboarding-footer { padding: 0 28px 24px; display: flex; flex-direction: column; gap: 8px; }
+.onboarding-save-btn { padding: 12px; font-size: 14px; font-weight: 700; border-radius: 10px; background: var(--accent); color: white; border: none; cursor: pointer; transition: opacity 0.15s; }
+.onboarding-save-btn:hover { opacity: 0.88; }
+.onboarding-skip { text-align: center; font-size: 12px; color: var(--muted); cursor: pointer; }
+.onboarding-skip:hover { color: var(--sub); text-decoration: underline; }
+
+/* Settings gear in header */
+.settings-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); width: 28px; height: 28px; border-radius: 7px; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.settings-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+
 /* RESIZE HANDLE */
 .resize-handle { width: 5px; flex-shrink: 0; cursor: col-resize; background: var(--border); position: relative; transition: background 0.15s; z-index: 10; }
 .resize-handle:hover, .resize-handle.dragging { background: var(--accent); }
@@ -428,6 +474,7 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
   <div class="header-right">
     <div class="streak-badge" id="streak-badge">🔥 <span id="streak-count">0</span>-day streak</div>
     <div class="chat-controls">
+      <button class="settings-btn" id="settings-btn" title="Search preferences">⚙</button>
       <button class="reset-btn" id="reset-btn" title="Start new conversation">↺ New chat</button>
       <div class="history-wrap" id="history-wrap">
         <button class="history-btn" id="history-btn" title="Chat history">🕐</button>
@@ -524,6 +571,20 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
         </div>
       </div>
 
+      <!-- JOB DISCOVERY -->
+      <div class="discover-card" id="discover-section">
+        <div class="discover-header">
+          <div>
+            <div class="discover-title">Job Discovery</div>
+            <div class="discover-meta" id="discover-meta">Find open roles matching your target</div>
+          </div>
+          <button class="discover-find-btn" id="discover-find-btn">Find jobs</button>
+        </div>
+        <div class="discover-results" id="discover-results">
+          <div class="discover-empty" id="discover-empty">No results yet. Click "Find jobs" to search for open roles matching your target.</div>
+        </div>
+      </div>
+
     </div>
 
     <!-- APPLICATIONS TAB -->
@@ -608,6 +669,7 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
         <button class="send-btn" id="send-btn">↑</button>
       </div>
       <div class="shortcuts">
+        <div class="shortcut" data-cmd="/find">/find</div>
         <div class="shortcut" data-cmd="/apply">/apply</div>
         <div class="shortcut" data-cmd="/research">/research</div>
         <div class="shortcut" data-cmd="/tailor">/tailor</div>
@@ -714,6 +776,31 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
     <div class="modal-footer">
       <button class="btn-ghost" id="modal-cancel">Cancel</button>
       <button class="btn-primary" id="modal-submit">Log application</button>
+    </div>
+  </div>
+</div>
+
+<!-- Onboarding modal -->
+<div class="onboarding-overlay" id="onboarding-overlay">
+  <div class="onboarding-modal">
+    <div class="onboarding-head">
+      <div class="onboarding-icon">◈</div>
+      <div class="onboarding-title">Welcome to JobAgent</div>
+      <div class="onboarding-sub">Tell me what you're looking for and I'll find open roles for you.</div>
+    </div>
+    <div class="onboarding-body">
+      <div class="onboarding-field">
+        <label>Target role</label>
+        <input id="ob-role" placeholder="e.g. Product Manager, Associate PM" />
+      </div>
+      <div class="onboarding-field">
+        <label>Location</label>
+        <input id="ob-location" placeholder="e.g. Tel Aviv, Remote, New York" />
+      </div>
+    </div>
+    <div class="onboarding-footer">
+      <button class="onboarding-save-btn" id="ob-save-btn">Save & start searching</button>
+      <div class="onboarding-skip" id="ob-skip">Skip for now</div>
     </div>
   </div>
 </div>

@@ -25,6 +25,7 @@ function ensureDirs() {
     'workspace/companies',
     'workspace/courses',
     'workspace/notes/weekly_reviews',
+    'workspace/discover',
   ];
   for (const dir of dirs) {
     const full = resolve(ROOT, dir);
@@ -226,6 +227,34 @@ app.post('/api/company/contacts', (req, res) => {
   company.contacts = contacts || [];
   writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
   res.json({ ok: true });
+});
+
+app.get('/api/profile', (req, res) => {
+  const profilePath = resolve(ROOT, 'workspace', 'profile.json');
+  if (!existsSync(profilePath)) return res.status(404).json({ error: 'no profile' });
+  try {
+    res.json(JSON.parse(readFileSync(profilePath, 'utf-8')));
+  } catch {
+    res.status(500).json({ error: 'parse error' });
+  }
+});
+
+app.post('/api/profile', (req, res) => {
+  const { targetRole, location } = req.body;
+  if (!targetRole || !location) return res.status(400).json({ error: 'targetRole and location required' });
+  const profilePath = resolve(ROOT, 'workspace', 'profile.json');
+  writeFileSync(profilePath, JSON.stringify({ targetRole, location }, null, 2));
+  res.json({ ok: true });
+});
+
+app.get('/api/discover', (req, res) => {
+  const discoverPath = resolve(ROOT, 'workspace', 'discover', 'latest.json');
+  if (!existsSync(discoverPath)) return res.json(null);
+  try {
+    res.json(JSON.parse(readFileSync(discoverPath, 'utf-8')));
+  } catch {
+    res.json(null);
+  }
 });
 
 app.post('/api/company/notes', (req, res) => {

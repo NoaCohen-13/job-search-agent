@@ -43,6 +43,11 @@ workspace/
     weekly_reviews/         ← weekly pipeline reviews
 
   memory/                   ← persistent memory (auto-managed)
+
+  discover/
+    latest.json             ← most recent /find results (overwritten each run)
+
+  profile.json              ← user's target role + location (set in onboarding)
 ```
 
 ---
@@ -141,6 +146,34 @@ This works both **before and after applying**. Run it to check fit, tailor, then
 3. For each behavioral question, suggest a STAR-format answer structure based on the user's resume.
 4. Save to `workspace/applications/[company-name]/interview_notes.md`.
 5. Optionally, offer to schedule a mock interview session.
+
+### 8. Job Discovery — `/find [role] [location]`
+1. If role or location are missing from the command, read `workspace/profile.json` for defaults. If the file doesn't exist either, ask the user for both.
+2. Run 3 web searches to find open roles:
+   - `site:linkedin.com/jobs "[role]" "[location]"`
+   - `"[role]" "[location]" jobs site:indeed.com`
+   - `"[role]" "[location]" jobs site:glassdoor.com`
+3. Extract up to 8 distinct job listings from the results. For each, capture: company name, role title, location, 1-sentence description, URL, source (LinkedIn / Indeed / Glassdoor).
+4. Deduplicate: if the same company + role appears in multiple searches, keep one entry.
+5. Save results to `workspace/discover/latest.json` (create the folder if needed):
+   ```json
+   {
+     "searchedAt": "<ISO timestamp>",
+     "query": { "role": "...", "location": "..." },
+     "results": [
+       { "company": "...", "role": "...", "location": "...", "description": "...", "url": "...", "source": "LinkedIn" }
+     ]
+   }
+   ```
+6. Present results as a numbered list in chat.
+7. End with: *"Type 'save #N [company]' to add any of these to your pipeline and I'll score your fit."*
+
+### Post-Find Save — `save #N [company]` or `save [company] from results`
+When the user asks to save a discovery result:
+1. Find the matching result in `workspace/discover/latest.json`.
+2. Fetch the full job page at the result's URL to extract the complete job description.
+3. Save the JD to `workspace/companies/[slug]/job_description.md`.
+4. Run the `/score` workflow automatically and show the result.
 
 ---
 
