@@ -257,6 +257,48 @@ app.get('/api/discover', (req, res) => {
   }
 });
 
+app.post('/api/discover/save', (req, res) => {
+  const { company, role, description, url, source, idx } = req.body;
+  if (!company) return res.status(400).json({ error: 'company required' });
+
+  const slug = slugify(company);
+  const dir = resolve(ROOT, 'workspace', 'companies', slug);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+  const jdContent = [
+    `# ${company} — ${role || 'Open Role'}`,
+    `**Source:** ${source || 'Job board'}`,
+    url ? `**URL:** ${url}` : '',
+    '',
+    description || '',
+  ].filter(l => l !== null).join('\n');
+  writeFileSync(resolve(dir, 'job_description.md'), jdContent);
+
+  // Add to companies list in data.json if not already there
+  const data = readData();
+  const existing = data.companies.find(c => c.name.toLowerCase() === company.toLowerCase());
+  if (!existing) {
+    data.companies.push({ name: company, status: 'researched', tagline: role || '' });
+    data.activity.push({ text: `Saved ${company} from Discover`, type: 'research', timestamp: new Date().toISOString() });
+    if (data.activity.length > 20) data.activity.shift();
+    writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  }
+
+  // Remove from discover results
+  if (idx !== undefined) {
+    const discoverPath = resolve(ROOT, 'workspace', 'discover', 'latest.json');
+    if (existsSync(discoverPath)) {
+      try {
+        const discover = JSON.parse(readFileSync(discoverPath, 'utf-8'));
+        discover.results = (discover.results || []).filter((_, i) => i !== parseInt(idx));
+        writeFileSync(discoverPath, JSON.stringify(discover, null, 2));
+      } catch {}
+    }
+  }
+
+  res.json({ ok: true });
+});
+
 app.delete('/api/discover/result', (req, res) => {
   const idx = parseInt(req.query.idx);
   const discoverPath = resolve(ROOT, 'workspace', 'discover', 'latest.json');

@@ -265,27 +265,30 @@ function renderDiscover(data) {
       </div>
       <div class="discover-actions">
         <button class="discover-dismiss-btn" data-idx="${i}" title="Remove">✕</button>
-        <button class="discover-save-btn" data-idx="${i}" data-company="${esc(r.company)}" data-role="${esc(r.role)}">Save &amp; Score</button>
+        <button class="discover-save-btn" data-idx="${i}" data-company="${esc(r.company)}" data-role="${esc(r.role)}">Save</button>
       </div>
     </div>`).join('');
 
+  // build a lookup of full result data by index for the save call
+  const resultsByIdx = {};
+  results.forEach((r, i) => { resultsByIdx[i] = r; });
+
   resultsEl.querySelectorAll('.discover-save-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (isStreaming) return;
-      const company = btn.dataset.company;
-      const role = btn.dataset.role;
       const idx = parseInt(btn.dataset.idx);
-      // disable all save buttons immediately so rapid clicks can't queue
-      resultsEl.querySelectorAll('.discover-save-btn').forEach(b => b.disabled = true);
-      // auto-dismiss this result from discover
-      await fetch(`/api/discover/result?idx=${idx}`, { method: 'DELETE' });
+      const r = resultsByIdx[idx];
+      btn.textContent = '✓ Saved';
+      btn.disabled = true;
+      btn.style.background = 'var(--green-light)';
+      btn.style.borderColor = 'var(--green)';
+      btn.style.color = 'var(--green)';
+      await fetch('/api/discover/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company: r.company, role: r.role, description: r.description, url: r.url, source: r.source, idx }),
+      });
       await loadDiscover();
-      // send to agent
-      const input = el('chat-input');
-      if (!input) return;
-      input.value = `Save ${company} from discover results and score my fit`;
-      input.dispatchEvent(new Event('input'));
-      el('send-btn')?.click();
+      await loadDashboard();
     });
   });
 
