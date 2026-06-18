@@ -271,11 +271,6 @@ app.delete('/api/discover/result', (req, res) => {
   }
 });
 
-app.delete('/api/discover', (req, res) => {
-  const discoverPath = resolve(ROOT, 'workspace', 'discover', 'latest.json');
-  if (existsSync(discoverPath)) writeFileSync(discoverPath, JSON.stringify(null));
-  res.json({ ok: true });
-});
 
 app.post('/api/company/notes', (req, res) => {
   const { name, notes } = req.body;

@@ -395,8 +395,8 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .discover-meta { font-size: 11px; color: var(--muted); }
 .discover-find-btn { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; flex-shrink: 0; }
 .discover-find-btn:hover { opacity: 0.88; }
-.discover-clear-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
-.discover-clear-btn:hover { border-color: #dc2626; color: #dc2626; }
+.discover-refresh-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+.discover-refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
 .discover-results { display: flex; flex-direction: column; gap: 8px; }
 .discover-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); transition: border-color 0.15s; }
 .discover-item:hover { border-color: #bfdbfe; }
@@ -588,7 +588,7 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
         <div class="discover-header">
           <div class="discover-meta" id="discover-meta">Search for roles matching your target</div>
           <div style="display:flex;gap:6px;align-items:center">
-            <button class="discover-clear-btn" id="discover-clear-btn" style="display:none">Clear</button>
+            <button class="discover-refresh-btn" id="discover-refresh-btn" style="display:none" title="Search again">↺ Refresh</button>
             <button class="discover-find-btn" id="discover-find-btn">Find jobs</button>
           </div>
         </div>

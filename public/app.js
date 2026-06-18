@@ -230,25 +230,28 @@ async function loadDiscover() {
   } catch {}
 }
 
+let lastDiscoverQuery = null;
+
 function renderDiscover(data) {
   const resultsEl = el('discover-results');
   const metaEl = el('discover-meta');
-  const clearBtn = el('discover-clear-btn');
+  const refreshBtn = el('discover-refresh-btn');
   if (!resultsEl) return;
 
   if (!data || !data.results?.length) {
     resultsEl.innerHTML = '<div class="discover-empty">No results yet. Click "Find jobs" to search for open roles matching your target.</div>';
     if (metaEl) metaEl.textContent = 'Search for roles matching your target';
-    if (clearBtn) clearBtn.style.display = 'none';
+    if (refreshBtn) refreshBtn.style.display = 'none';
     return;
   }
 
   const { results, query, searchedAt } = data;
+  if (query) lastDiscoverQuery = query;
   if (metaEl && query) {
     const ago = searchedAt ? timeAgo(searchedAt) : '';
     metaEl.textContent = `"${esc(query.role)}" in ${esc(query.location)}${ago ? ' · ' + ago : ''} · ${results.length} result${results.length !== 1 ? 's' : ''}`;
   }
-  if (clearBtn) clearBtn.style.display = '';
+  if (refreshBtn) refreshBtn.style.display = '';
 
   resultsEl.innerHTML = results.map((r, i) => `
     <div class="discover-item" id="discover-item-${i}">
@@ -289,9 +292,14 @@ function renderDiscover(data) {
 }
 
 function initDiscover() {
-  el('discover-clear-btn').addEventListener('click', async () => {
-    await fetch('/api/discover', { method: 'DELETE' });
-    await loadDiscover();
+  el('discover-refresh-btn').addEventListener('click', () => {
+    const query = lastDiscoverQuery || (userProfile ? { role: userProfile.targetRole, location: userProfile.location } : null);
+    if (!query) return;
+    const input = el('chat-input');
+    if (!input) return;
+    input.value = `/find ${query.role} ${query.location}`;
+    input.dispatchEvent(new Event('input'));
+    el('send-btn')?.click();
   });
 
   el('discover-find-btn').addEventListener('click', () => {
