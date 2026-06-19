@@ -32,6 +32,38 @@ function ensureDirs() {
     const full = resolve(ROOT, dir);
     if (!existsSync(full)) mkdirSync(full, { recursive: true });
   }
+
+  // Create a resume placeholder if none exists so agent commands don't silently fail
+  const resumePath = resolve(ROOT, 'workspace', 'resume', 'base_resume.md');
+  if (!existsSync(resumePath)) {
+    writeFileSync(resumePath, [
+      '# Your Name',
+      '',
+      'your.email@example.com | Your City | linkedin.com/in/yourprofile',
+      '',
+      '---',
+      '',
+      '> **Replace this file with your actual resume** (plain text or Markdown).',
+      '> The agent reads this file for tailoring and scoring — never edit it directly.',
+      '',
+      '## Summary',
+      '',
+      'Replace with your professional summary.',
+      '',
+      '## Experience',
+      '',
+      '**Company Name** — Role Title (Month Year – Month Year)',
+      '- Achievement or responsibility',
+      '',
+      '## Education',
+      '',
+      '**University Name** — Degree, Field (Year)',
+      '',
+      '## Skills',
+      '',
+      'Skill 1, Skill 2, Skill 3',
+    ].join('\n'));
+  }
 }
 
 function readData() {
@@ -266,20 +298,42 @@ app.post('/api/company/contacts', (req, res) => {
 });
 
 app.get('/api/profile', (req, res) => {
-  const profilePath = resolve(ROOT, 'workspace', 'profile.json');
-  if (!existsSync(profilePath)) return res.status(404).json({ error: 'no profile' });
-  try {
-    res.json(JSON.parse(readFileSync(profilePath, 'utf-8')));
-  } catch {
-    res.status(500).json({ error: 'parse error' });
+  // config.json is the primary source of truth (used by the agent system prompt)
+  const configPath = resolve(ROOT, 'config.json');
+  if (existsSync(configPath)) {
+    try {
+      const config = JSON.parse(readFileSync(configPath, 'utf-8'));
+      if (config.targetRole || config.location) {
+        return res.json({ targetRole: config.targetRole || '', location: config.location || '' });
+      }
+    } catch {}
   }
+  // Fall back to workspace/profile.json
+  const profilePath = resolve(ROOT, 'workspace', 'profile.json');
+  if (existsSync(profilePath)) {
+    try { return res.json(JSON.parse(readFileSync(profilePath, 'utf-8'))); } catch {}
+  }
+  return res.status(404).json({ error: 'no profile' });
 });
 
 app.post('/api/profile', (req, res) => {
   const { targetRole, location } = req.body;
   if (!targetRole || !location) return res.status(400).json({ error: 'targetRole and location required' });
+
+  // Write to workspace/profile.json (used by Discover /find defaults)
   const profilePath = resolve(ROOT, 'workspace', 'profile.json');
   writeFileSync(profilePath, JSON.stringify({ targetRole, location }, null, 2));
+
+  // Merge into config.json so the agent system prompt stays in sync
+  const configPath = resolve(ROOT, 'config.json');
+  let config = {};
+  if (existsSync(configPath)) {
+    try { config = JSON.parse(readFileSync(configPath, 'utf-8')); } catch {}
+  }
+  config.targetRole = targetRole;
+  config.location = location;
+  writeFileSync(configPath, JSON.stringify(config, null, 2));
+
   res.json({ ok: true });
 });
 
