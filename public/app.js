@@ -5,6 +5,7 @@ let currentBubble = null;
 let currentBubbleText = '';
 let pollTimer = null;
 let userProfile = null;
+let cpCurrentFetchKey = null;
 
 const STATUS_COLORS = {
   applied: '#2563eb',
@@ -46,7 +47,7 @@ function renderStats(data) {
   const applied = data.stats.totalApplied;
   const rate = data.stats.responseRate;
   const interviews = data.stats.activeInterviews;
-  const companies = (data.companies || []).length;
+  const companies = (data.companies || []).length + (data.savedJobs || []).length;
 
   const apps = data.applications || [];
   const waiting = apps.filter(a => a.status === 'applied').length;
@@ -317,33 +318,68 @@ function initDiscover() {
   });
 }
 
+function makeCompanyCard(co) {
+  const initials = co.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const color = co.color || nextColor();
+  const statusKey = co.status || '';
+  const statusText = statusKey ? statusKey.charAt(0).toUpperCase() + statusKey.slice(1) : '';
+  const hasContacts = co.contacts?.length > 0;
+  return `<div class="company-card" data-company="${esc(co.name)}">
+    <button class="co-delete-btn" data-delete-company="${esc(co.name)}" title="Remove">✕</button>
+    <div class="co-logo" style="background:${color}">${initials}</div>
+    <div class="co-name">${esc(co.name)}${hasContacts ? '<span class="co-contact-badge">👤</span>' : ''}</div>
+    ${co.tagline ? `<div class="co-tagline">${esc(co.tagline)}</div>` : ''}
+    ${statusText ? `<div class="co-status"><span class="co-dot st-${statusKey}"></span>${statusText}</div>` : ''}
+  </div>`;
+}
+
+function makeSavedJobCard(job) {
+  const initials = job.company.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  return `<div class="company-card saved-job-card" data-job-id="${esc(job.id)}" data-company="${esc(job.company)}">
+    <button class="co-delete-btn" data-delete-saved-job="${esc(job.id)}" title="Remove">✕</button>
+    <div class="co-logo" style="background:#0ea5e9">${initials}</div>
+    <div class="co-name">${esc(job.company)}</div>
+    ${job.role ? `<div class="co-tagline">${esc(job.role)}</div>` : ''}
+    <div class="co-status"><span class="co-dot" style="background:#16a34a"></span>Saved</div>
+  </div>`;
+}
+
 function renderCompanies(data) {
   const companies = data.companies || [];
-
-  const makeCard = (co) => {
-    const initials = co.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-    const color = co.color || nextColor();
-    const statusKey = co.status || '';
-    const statusText = statusKey ? statusKey.charAt(0).toUpperCase() + statusKey.slice(1) : '';
-
-    const hasContacts = co.contacts?.length > 0;
-    return `<div class="company-card" data-company="${esc(co.name)}">
-      <button class="co-delete-btn" data-delete-company="${esc(co.name)}" title="Remove company">✕</button>
-      <div class="co-logo" style="background:${color}">${initials}</div>
-      <div class="co-name">${esc(co.name)}${hasContacts ? '<span class="co-contact-badge">👤</span>' : ''}</div>
-      ${co.tagline ? `<div class="co-tagline">${esc(co.tagline)}</div>` : ''}
-      ${statusText ? `<div class="co-status"><span class="co-dot st-${statusKey}"></span>${statusText}</div>` : ''}
-    </div>`;
-  };
+  const savedJobs = data.savedJobs || [];
 
   const addCard = `<div class="company-card add-card">
     <span style="font-size:18px">+</span>
     <span>Research a company</span>
   </div>`;
 
-  const cards = companies.map(makeCard).join('') + (companies.length < 8 ? addCard : '');
-  el('companies-grid').innerHTML = cards || addCard;
-  el('companies-grid-full').innerHTML = companies.map(makeCard).join('') || '<div style="color:var(--muted);font-size:13px;padding:8px">No companies researched yet.</div>';
+  // Dashboard mini-grid: savedJobs first, then researched companies
+  const combined = [
+    ...savedJobs.map(makeSavedJobCard),
+    ...companies.map(makeCompanyCard),
+  ];
+  const miniGrid = combined.slice(0, 7).join('') + (combined.length < 8 ? addCard : '');
+  el('companies-grid').innerHTML = miniGrid || addCard;
+}
+
+function renderSavedTab(data) {
+  const savedJobs = data.savedJobs || [];
+  const companies = data.companies || [];
+
+  const savedSection = el('saved-jobs-section');
+  if (savedSection) savedSection.style.display = savedJobs.length > 0 ? '' : 'none';
+
+  const savedGrid = el('saved-jobs-grid');
+  if (savedGrid) {
+    savedGrid.innerHTML = savedJobs.map(makeSavedJobCard).join('')
+      || '<div style="color:var(--muted);font-size:13px;padding:8px">No saved jobs yet.</div>';
+  }
+
+  const fullGrid = el('companies-grid-full');
+  if (fullGrid) {
+    fullGrid.innerHTML = companies.map(makeCompanyCard).join('')
+      || '<div style="color:var(--muted);font-size:13px;padding:8px">No companies researched yet.</div>';
+  }
 }
 
 function renderApplicationsList(data) {
@@ -400,6 +436,7 @@ async function loadDashboard() {
     renderChart(data);
     renderActivity(data);
     renderCompanies(data);
+    renderSavedTab(data);
     renderApplicationsList(data);
   } catch (err) {
     console.error('Failed to load dashboard:', err);
@@ -661,7 +698,7 @@ function renderFitTab(application, atsScore, hasJd, hasTailored) {
   el('ats-rescore-btn')?.addEventListener('click', () => {
     const input = el('chat-input');
     if (!input) return;
-    input.value = `/score ${application.company}`;
+    input.value = `/score ${company}`;
     input.dispatchEvent(new Event('input'));
     el('send-btn')?.click();
   });
@@ -671,18 +708,20 @@ function renderFitTab(application, atsScore, hasJd, hasTailored) {
 let cpCurrentCompany = null;
 let cpNotesTimer = null;
 
-function openCompanyPanel(name) {
-  cpCurrentCompany = name;
+function openCompanyPanel(displayName, fetchKey) {
+  cpCurrentCompany = fetchKey || displayName;
+  cpCurrentFetchKey = fetchKey || displayName;
   document.querySelectorAll('.tab-view').forEach(v => v.style.display = 'none');
   el('company-panel').classList.add('open');
   switchCompanyTab('overview');
-  loadCompanyData(name);
+  loadCompanyData(displayName, fetchKey);
 }
 
 function closeCompanyPanel() {
   el('company-panel').classList.remove('open');
   document.querySelectorAll('.tab-view').forEach(v => v.style.display = '');
   cpCurrentCompany = null;
+  cpCurrentFetchKey = null;
 }
 
 function switchCompanyTab(tab) {
@@ -692,10 +731,11 @@ function switchCompanyTab(tab) {
     v.classList.toggle('active', v.id === `cp-view-${tab}`));
 }
 
-async function loadCompanyData(name) {
-  el('cp-name').textContent = name;
+async function loadCompanyData(displayName, fetchKey) {
+  const key = fetchKey || displayName;
+  el('cp-name').textContent = displayName;
   el('cp-role').textContent = '';
-  el('cp-logo').textContent = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  el('cp-logo').textContent = displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   el('cp-logo').style.background = '#64748b';
   el('cp-pill').innerHTML = '';
   el('cp-view-overview').innerHTML = '<div class="cp-section-empty">Loading…</div>';
@@ -703,9 +743,9 @@ async function loadCompanyData(name) {
   el('cp-view-notes').innerHTML = '';
 
   try {
-    const res = await fetch(`/api/company?name=${encodeURIComponent(name)}`);
+    const res = await fetch(`/api/company?name=${encodeURIComponent(key)}`);
     const data = await res.json();
-    renderCompanyPanel(data, name);
+    renderCompanyPanel(data, displayName);
   } catch (err) {
     el('cp-view-overview').innerHTML = `<div class="cp-section-empty">Failed to load: ${err.message}</div>`;
   }
@@ -876,7 +916,7 @@ async function saveContacts(companyName, contacts) {
 }
 
 function renderCompanyPanel(data, name) {
-  const { company, application, research, interviewNotes, userNotes, atsScore, hasJd, hasTailored } = data;
+  const { company, application, savedJob, research, interviewNotes, userNotes, atsScore, hasJd, hasTailored } = data;
   cpContacts = company?.contacts || [];
   const color = company?.color || '#64748b';
   el('cp-logo').style.background = color;
@@ -885,6 +925,9 @@ function renderCompanyPanel(data, name) {
     const s = application.status;
     el('cp-pill').innerHTML = `<span class="pill pill-${s}">${s.charAt(0).toUpperCase() + s.slice(1)}</span>`;
     el('cp-role').textContent = application.role;
+  } else if (savedJob) {
+    el('cp-pill').innerHTML = `<span class="pill" style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0">Saved</span>`;
+    el('cp-role').textContent = savedJob.role || '';
   } else {
     el('cp-pill').innerHTML = `<span class="pill" style="background:var(--bg);color:var(--muted);border:1px solid var(--border)">Researched</span>`;
   }
@@ -947,7 +990,7 @@ function renderCompanyPanel(data, name) {
   renderFitTab(application, atsScore, hasJd, hasTailored);
 
   // Interview Prep
-  renderPrepTab(name, interviewNotes, application);
+  renderPrepTab(name, interviewNotes, application, savedJob?.role);
 
   // Notes
   el('cp-view-notes').innerHTML = `
@@ -957,18 +1000,19 @@ function renderCompanyPanel(data, name) {
   el('cp-notes-textarea').addEventListener('input', () => {
     el('cp-save-indicator').textContent = 'Unsaved…';
     clearTimeout(cpNotesTimer);
-    cpNotesTimer = setTimeout(() => saveCompanyNotes(name), 1500);
+    cpNotesTimer = setTimeout(() => saveCompanyNotes(), 1500);
   });
 }
 
-async function saveCompanyNotes(name) {
+async function saveCompanyNotes() {
   const textarea = el('cp-notes-textarea');
   if (!textarea) return;
+  const key = cpCurrentFetchKey || cpCurrentCompany || '';
   try {
     await fetch('/api/company/notes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, notes: textarea.value }),
+      body: JSON.stringify({ name: key, notes: textarea.value }),
     });
     el('cp-save-indicator').textContent = 'Saved ✓';
   } catch {
@@ -979,9 +1023,9 @@ async function saveCompanyNotes(name) {
 // ── Mock Interview ──────────────────────────────────────────────────────────
 let cpInterviewStreaming = false;
 
-function renderPrepTab(name, interviewNotes, application) {
+function renderPrepTab(name, interviewNotes, application, roleOverride) {
   cpInterviewStreaming = false;
-  const roleText = application ? application.role : '';
+  const roleText = application?.role || roleOverride || '';
 
   el('cp-view-prep').innerHTML = `
     <div class="cp-prep-start" id="cp-prep-start">
@@ -1145,8 +1189,16 @@ function initCompanyPanel() {
   document.querySelectorAll('.cp-tab').forEach(tab => {
     tab.addEventListener('click', () => switchCompanyTab(tab.dataset.cpTab));
   });
-  // delegated click for all company cards (both grids)
+  // delegated click for all company/saved-job cards and app rows
   document.addEventListener('click', (e) => {
+    const delSavedBtn = e.target.closest('[data-delete-saved-job]');
+    if (delSavedBtn) {
+      e.stopPropagation();
+      const id = delSavedBtn.dataset.deleteSavedJob;
+      fetch(`/api/saved-job?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+        .then(() => loadDashboard());
+      return;
+    }
     const delBtn = e.target.closest('[data-delete-company]');
     if (delBtn) {
       e.stopPropagation();
@@ -1155,9 +1207,15 @@ function initCompanyPanel() {
         .then(() => loadDashboard());
       return;
     }
+    const savedJobCard = e.target.closest('.saved-job-card');
+    if (savedJobCard) {
+      openCompanyPanel(savedJobCard.dataset.company, savedJobCard.dataset.jobId);
+      return;
+    }
     const card = e.target.closest('.company-card:not(.add-card)');
     if (card && card.dataset.company) {
       openCompanyPanel(card.dataset.company);
+      return;
     }
     const appItem = e.target.closest('.app-item[data-company]');
     if (appItem) {
@@ -1168,6 +1226,7 @@ function initCompanyPanel() {
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
 function switchTab(name) {
+  closeCompanyPanel();
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tab-view').forEach(v => v.classList.toggle('active', v.id === `tab-${name}`));
 }

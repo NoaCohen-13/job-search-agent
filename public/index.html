@@ -482,7 +482,7 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
     <div class="tab active" data-tab="dashboard">Dashboard</div>
     <div class="tab" data-tab="discover">Discover</div>
     <div class="tab" data-tab="applications">Applications</div>
-    <div class="tab" data-tab="companies">Companies</div>
+    <div class="tab" data-tab="companies">Saved</div>
   </div>
   <div class="header-right">
     <div class="streak-badge" id="streak-badge">🔥 <span id="streak-count">0</span>-day streak</div>
@@ -618,16 +618,24 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
       </div>
     </div>
 
-    <!-- COMPANIES TAB -->
+    <!-- SAVED TAB -->
     <div class="tab-view" id="tab-companies">
       <div class="page-header">
-        <div class="page-title">Companies</div>
-        <div class="page-sub">Companies you've researched or applied to</div>
+        <div class="page-title">Saved</div>
+        <div class="page-sub">Jobs saved from Discover and companies you're tracking</div>
+      </div>
+      <div class="card" id="saved-jobs-section" style="display:none">
+        <div class="card-header">
+          <div class="card-title">Saved Jobs</div>
+        </div>
+        <div class="companies-grid" id="saved-jobs-grid">
+          <!-- injected by JS -->
+        </div>
       </div>
       <div class="card">
         <div class="card-header">
-          <div class="card-title">All Companies</div>
-          <div class="card-action" id="add-company-tab-btn">+ Add company</div>
+          <div class="card-title">Researched Companies</div>
+          <div class="card-action" id="add-company-tab-btn">+ Add</div>
         </div>
         <div class="companies-grid" id="companies-grid-full">
           <!-- injected by JS -->

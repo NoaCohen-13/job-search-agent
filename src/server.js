@@ -13,6 +13,7 @@ const EMPTY_DATA = {
   stats: { totalApplied: 0, responseRate: 0, activeInterviews: 0, streak: 0 },
   applications: [],
   companies: [],
+  savedJobs: [],
   activity: [],
   weeklyActivity: { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 },
 };
@@ -36,12 +37,14 @@ function ensureDirs() {
 function readData() {
   if (existsSync(DATA_FILE)) {
     try {
-      return JSON.parse(readFileSync(DATA_FILE, 'utf-8'));
+      const data = JSON.parse(readFileSync(DATA_FILE, 'utf-8'));
+      if (!data.savedJobs) data.savedJobs = [];
+      return data;
     } catch {
-      return EMPTY_DATA;
+      return { ...EMPTY_DATA };
     }
   }
-  return EMPTY_DATA;
+  return { ...EMPTY_DATA };
 }
 
 const app = express();
@@ -185,6 +188,24 @@ app.get('/api/company', (req, res) => {
   if (!name) return res.status(400).json({ error: 'name required' });
 
   const data = readData();
+
+  // Check if name is a savedJob id
+  const savedJob = (data.savedJobs || []).find(j => j.id === name);
+  if (savedJob) {
+    const dir = resolve(ROOT, 'workspace', 'companies', savedJob.id);
+    let atsScore = null;
+    const scorePath = resolve(dir, 'ats_score.json');
+    if (existsSync(scorePath)) {
+      try { atsScore = JSON.parse(readFileSync(scorePath, 'utf-8')); } catch {}
+    }
+    const hasJd = existsSync(resolve(dir, 'job_description.md'));
+    const hasTailored = existsSync(resolve(dir, 'tailored_resume.md'));
+    const notesPath = resolve(dir, 'notes.md');
+    const userNotes = existsSync(notesPath) ? readFileSync(notesPath, 'utf-8') : '';
+    const company = data.companies.find(c => c.name.toLowerCase() === savedJob.company.toLowerCase()) || null;
+    return res.json({ savedJob, company, application: null, research: null, interviewNotes: null, userNotes, atsScore, hasJd, hasTailored });
+  }
+
   const company = data.companies.find(c => c.name.toLowerCase() === name.toLowerCase()) || null;
   const application = data.applications.find(a => a.company.toLowerCase() === name.toLowerCase()) || null;
 
@@ -276,8 +297,10 @@ app.post('/api/discover/save', (req, res) => {
   const { company, role, description, url, source, idx } = req.body;
   if (!company) return res.status(400).json({ error: 'company required' });
 
-  const slug = slugify(company);
-  const dir = resolve(ROOT, 'workspace', 'companies', slug);
+  const id = role
+    ? `${slugify(company)}-${slugify(role)}`
+    : slugify(company);
+  const dir = resolve(ROOT, 'workspace', 'companies', id);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
   const jdContent = [
@@ -289,12 +312,13 @@ app.post('/api/discover/save', (req, res) => {
   ].filter(l => l !== null).join('\n');
   writeFileSync(resolve(dir, 'job_description.md'), jdContent);
 
-  // Add to companies list in data.json if not already there
+  // Add to savedJobs (not companies)
   const data = readData();
-  const existing = data.companies.find(c => c.name.toLowerCase() === company.toLowerCase());
-  if (!existing) {
-    data.companies.push({ name: company, status: 'researched', tagline: role || '' });
-    data.activity.push({ text: `Saved ${company} from Discover`, type: 'research', timestamp: new Date().toISOString() });
+  if (!data.savedJobs) data.savedJobs = [];
+  const existingJob = data.savedJobs.find(j => j.id === id);
+  if (!existingJob) {
+    data.savedJobs.push({ id, company, role: role || '', source: source || '', url: url || '', savedAt: new Date().toISOString() });
+    data.activity.push({ text: `Saved ${company}${role ? ' — ' + role : ''} from Discover`, type: 'research', timestamp: new Date().toISOString() });
     if (data.activity.length > 20) data.activity.shift();
     writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
   }
@@ -311,6 +335,16 @@ app.post('/api/discover/save', (req, res) => {
     }
   }
 
+  res.json({ ok: true, id });
+});
+
+app.delete('/api/saved-job', (req, res) => {
+  const { id } = req.query;
+  if (!id) return res.status(400).json({ error: 'id required' });
+  const data = readData();
+  if (!data.savedJobs) data.savedJobs = [];
+  data.savedJobs = data.savedJobs.filter(j => j.id !== id);
+  writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
   res.json({ ok: true });
 });
 
@@ -334,6 +368,16 @@ app.post('/api/company/notes', (req, res) => {
   if (!name) return res.status(400).json({ error: 'name required' });
 
   const data = readData();
+
+  // Check if name is a savedJob id
+  const savedJob = (data.savedJobs || []).find(j => j.id === name);
+  if (savedJob) {
+    const dir = resolve(ROOT, 'workspace', 'companies', savedJob.id);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    writeFileSync(resolve(dir, 'notes.md'), notes || '');
+    return res.json({ ok: true });
+  }
+
   const application = data.applications.find(a => a.company.toLowerCase() === name.toLowerCase());
 
   let notesPath;
