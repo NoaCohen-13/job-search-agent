@@ -2,6 +2,8 @@ import express from 'express';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { marked } from 'marked';
+import { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } from 'docx';
 import { sendMessage, resetSession, listSessions, resumeSession, deleteSession } from './agent.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -447,6 +449,170 @@ app.post('/api/company/notes', (req, res) => {
   writeFileSync(notesPath, notes || '');
   res.json({ ok: true });
 });
+
+// ── Resume export helpers ──────────────────────────────────────────────────
+
+function parseInlineRuns(text, baseOpts = {}) {
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/);
+  return parts.filter(Boolean).map(part => {
+    if (part.startsWith('**') && part.endsWith('**'))
+      return new TextRun({ text: part.slice(2, -2), ...baseOpts, bold: true });
+    if (part.startsWith('*') && part.endsWith('*'))
+      return new TextRun({ text: part.slice(1, -1), ...baseOpts, italics: true });
+    return new TextRun({ text: part, ...baseOpts });
+  });
+}
+
+function markdownToDocx(markdown) {
+  const base = { font: 'Calibri', size: 20 };
+  const children = [];
+
+  for (const line of markdown.split('\n')) {
+    const t = line.trim();
+
+    if (t.startsWith('# ')) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: t.slice(2), bold: true, size: 40, font: 'Calibri' })],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 80 },
+      }));
+    } else if (t.startsWith('## ')) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: t.slice(3), bold: true, size: 22, font: 'Calibri', allCaps: true })],
+        spacing: { before: 240, after: 80 },
+        border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: '888888' } },
+      }));
+    } else if (t.startsWith('### ')) {
+      children.push(new Paragraph({
+        children: parseInlineRuns(t.slice(4), { ...base, bold: true }),
+        spacing: { before: 120, after: 40 },
+      }));
+    } else if (t.startsWith('- ') || t.startsWith('* ')) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: '•  ', ...base }), ...parseInlineRuns(t.slice(2), base)],
+        indent: { left: 360 },
+        spacing: { after: 40 },
+      }));
+    } else if (t.startsWith('> ')) {
+      children.push(new Paragraph({
+        children: parseInlineRuns(t.slice(2), { ...base, italics: true, color: '888888' }),
+        spacing: { after: 60 },
+      }));
+    } else if (t === '---') {
+      children.push(new Paragraph({ spacing: { before: 120, after: 120 } }));
+    } else if (t === '') {
+      children.push(new Paragraph({ spacing: { after: 60 } }));
+    } else {
+      children.push(new Paragraph({
+        children: parseInlineRuns(t, base),
+        spacing: { after: 60 },
+      }));
+    }
+  }
+
+  return new Document({ sections: [{ children }] });
+}
+
+function resumePrintHtml(markdown) {
+  const body = marked.parse(markdown);
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Resume</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Georgia, 'Times New Roman', serif; font-size: 11pt; color: #111;
+         max-width: 780px; margin: 0 auto; padding: 36px 48px; line-height: 1.5; }
+  h1 { font-size: 22pt; text-align: center; margin-bottom: 4px; }
+  h2 { font-size: 11pt; text-transform: uppercase; letter-spacing: 0.08em;
+       border-bottom: 1px solid #888; padding-bottom: 3px; margin-top: 18px; margin-bottom: 6px; }
+  h3 { font-size: 11pt; margin-top: 10px; margin-bottom: 2px; }
+  p  { margin-bottom: 4px; }
+  ul { padding-left: 18px; margin-bottom: 4px; }
+  li { margin-bottom: 2px; }
+  hr { border: none; border-top: 1px solid #ccc; margin: 12px 0; }
+  blockquote { color: #666; font-style: italic; padding-left: 12px; }
+  @media print {
+    body { padding: 0; }
+    @page { margin: 0.6in 0.7in; size: A4; }
+  }
+</style>
+</head>
+<body>
+${body}
+<script>window.addEventListener('load', () => window.print());<\/script>
+</body>
+</html>`;
+}
+
+function findResumeFile(data, key) {
+  // savedJob id?
+  const savedJob = (data.savedJobs || []).find(j => j.id === key);
+  if (savedJob) {
+    const dir = resolve(ROOT, 'workspace', 'companies', savedJob.id);
+    const tailored = resolve(dir, 'tailored_resume.md');
+    return {
+      path: existsSync(tailored) ? tailored : resolve(ROOT, 'workspace', 'resume', 'base_resume.md'),
+      isTailored: existsSync(tailored),
+      label: `${savedJob.company} — ${savedJob.role}`.replace(/[^\w\s—-]/g, '').replace(/\s+/g, '_'),
+    };
+  }
+  // application?
+  const app = data.applications.find(a => a.id === key || a.company.toLowerCase() === key.toLowerCase());
+  if (app) {
+    const dir = resolve(ROOT, 'workspace', 'applications', app.id);
+    const tailored = resolve(dir, 'tailored_resume.md');
+    return {
+      path: existsSync(tailored) ? tailored : resolve(ROOT, 'workspace', 'resume', 'base_resume.md'),
+      isTailored: existsSync(tailored),
+      label: `${app.company}_${app.role}`.replace(/[^\w-]/g, '_'),
+    };
+  }
+  // companies folder?
+  const dir = resolve(ROOT, 'workspace', 'companies', slugify(key));
+  const tailored = resolve(dir, 'tailored_resume.md');
+  return {
+    path: existsSync(tailored) ? tailored : resolve(ROOT, 'workspace', 'resume', 'base_resume.md'),
+    isTailored: existsSync(tailored),
+    label: key.replace(/[^\w-]/g, '_'),
+  };
+}
+
+app.get('/api/resume/export', async (req, res) => {
+  const { company, format } = req.query;
+  if (!company || !format) return res.status(400).json({ error: 'company and format required' });
+
+  const data = readData();
+  const { path: resumePath, isTailored, label } = findResumeFile(data, company);
+
+  if (!existsSync(resumePath)) {
+    return res.status(404).json({ error: 'No resume file found. Add workspace/resume/base_resume.md to get started.' });
+  }
+
+  const markdown = readFileSync(resumePath, 'utf-8');
+
+  if (format === 'pdf') {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(resumePrintHtml(markdown));
+  }
+
+  if (format === 'docx') {
+    try {
+      const doc = markdownToDocx(markdown);
+      const buffer = await Packer.toBuffer(doc);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="${label}_Resume.docx"`);
+      return res.send(buffer);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  res.status(400).json({ error: 'format must be pdf or docx' });
+});
+
+// ── End resume export ──────────────────────────────────────────────────────
 
 ensureDirs();
 

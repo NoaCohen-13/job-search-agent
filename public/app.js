@@ -594,6 +594,16 @@ function atsFitDot(score) {
   return `<span class="ats-dot ${cls}">${label}</span>`;
 }
 
+function resumeDownloadBar(key) {
+  if (!key) return '';
+  const enc = encodeURIComponent(key);
+  return `<div class="resume-download-bar">
+    <span class="resume-download-label">Download resume</span>
+    <a class="resume-dl-btn" href="/api/resume/export?company=${enc}&format=pdf" target="_blank">PDF</a>
+    <a class="resume-dl-btn" href="/api/resume/export?company=${enc}&format=docx">Word</a>
+  </div>`;
+}
+
 function renderFitTab(application, atsScore, hasJd, hasTailored) {
   const view = el('cp-view-fit');
   if (!view) return;
@@ -636,7 +646,8 @@ function renderFitTab(application, atsScore, hasJd, hasTailored) {
           <div class="ats-empty-text">${hint}</div>
           ${showBtn ? `<button class="ats-run-btn" id="ats-run-btn">Run score →</button>` : ''}
         </div>
-      </div>`;
+      </div>
+      ${(hasTailored || isApplied) ? resumeDownloadBar(cpCurrentFetchKey || company) : ''}`;
 
     el('ats-run-btn')?.addEventListener('click', () => {
       const input = el('chat-input');
@@ -702,6 +713,8 @@ function renderFitTab(application, atsScore, hasJd, hasTailored) {
     input.dispatchEvent(new Event('input'));
     el('send-btn')?.click();
   });
+
+  view.innerHTML += resumeDownloadBar(cpCurrentFetchKey || company);
 }
 
 // ── Company Panel ──────────────────────────────────────────────────────────
