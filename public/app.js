@@ -60,14 +60,18 @@ function renderStats(data) {
 
   const apps = data.applications || [];
   const waiting = apps.filter(a => a.status === 'applied').length;
-  const replied = apps.filter(a => ['screening','interview','offer','rejected'].includes(a.status)).length;
+  const active = apps.filter(a => ['applied','screening','interview','offer'].includes(a.status)).length;
+  const closed = apps.filter(a => ['rejected','withdrawn'].includes(a.status)).length;
 
   el('stat-applied').textContent = applied;
   el('stat-interviews').textContent = interviews;
   el('stat-companies').textContent = companies;
 
-  el('stat-applied-sub').textContent = applied === 0 ? 'none yet' : replied > 0 ? `${replied} replied back` : 'no replies yet';
-  el('stat-applied-sub').className = `stat-trend ${replied > 0 ? 'trend-up' : 'trend-neutral'}`;
+  const subParts = [];
+  if (active > 0) subParts.push(`${active} active`);
+  if (closed > 0) subParts.push(`${closed} closed`);
+  el('stat-applied-sub').textContent = applied === 0 ? 'none yet' : subParts.join(' · ') || 'no replies yet';
+  el('stat-applied-sub').className = `stat-trend ${closed > 0 ? 'trend-neutral' : active > 0 ? 'trend-up' : 'trend-neutral'}`;
 
   el('stat-waiting-sub').textContent = waiting > 0 ? `${waiting} waiting for reply` : '';
   el('stat-waiting-sub').className = `stat-trend trend-neutral`;
@@ -89,11 +93,12 @@ function renderPipeline(data) {
     { key: 'screening', label: 'Screening', cls: 'col-yellow', countCls: 'yellow' },
     { key: 'interview', label: 'Interview', cls: 'col-green', countCls: 'green' },
     { key: 'offer', label: 'Offer', cls: 'col-purple', countCls: 'purple' },
+    { key: 'closed', label: 'Closed', cls: 'col-muted', countCls: 'muted', multi: ['rejected','withdrawn'] },
   ];
 
   const container = el('pipeline-row');
   container.innerHTML = stages.map(stage => {
-    const items = apps.filter(a => a.status === stage.key);
+    const items = stage.multi ? apps.filter(a => stage.multi.includes(a.status)) : apps.filter(a => a.status === stage.key);
     const makeCard = (a, hidden) => {
       const dot = a.atsScore ? `<div class="pipe-card-foot">${atsFitDot(a.atsScore.score)}</div>` : '';
       return `<div class="pipe-card ${stage.cls}${hidden ? ' pipe-card-extra' : ''}">
