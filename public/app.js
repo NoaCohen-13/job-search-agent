@@ -594,12 +594,11 @@ function atsFitDot(score) {
   return `<span class="ats-dot ${cls}">${label}</span>`;
 }
 
-function resumeDownloadBar(key, isTailored) {
+function resumeDownloadBar(key) {
   if (!key) return '';
   const enc = encodeURIComponent(key);
-  const label = isTailored ? 'Download tailored resume' : 'Download base resume';
   return `<div class="resume-download-bar">
-    <span class="resume-download-label">${label}</span>
+    <span class="resume-download-label">Download tailored resume</span>
     <a class="resume-dl-btn" href="/api/resume/export?company=${enc}&format=pdf" target="_blank">PDF</a>
     <a class="resume-dl-btn" href="/api/resume/export?company=${enc}&format=docx">Word</a>
   </div>`;
@@ -648,7 +647,7 @@ function renderFitTab(application, atsScore, hasJd, hasTailored) {
           ${showBtn ? `<button class="ats-run-btn" id="ats-run-btn">Run score →</button>` : ''}
         </div>
       </div>
-      ${hasJd || hasTailored || isApplied ? resumeDownloadBar(cpCurrentFetchKey || company, hasTailored || isApplied) : ''}`;
+      ${hasTailored || isApplied ? resumeDownloadBar(cpCurrentFetchKey || company) : ''}`;
 
     el('ats-run-btn')?.addEventListener('click', () => {
       const input = el('chat-input');
@@ -706,7 +705,7 @@ function renderFitTab(application, atsScore, hasJd, hasTailored) {
       <div class="cp-section-title">Missing or weak keywords</div>
       <div class="ats-gaps">${gapsHtml}</div>
     </div>` : ''}
-    ${resumeDownloadBar(cpCurrentFetchKey || company, hasTailored || isApplied)}`;
+    ${hasTailored || isApplied ? resumeDownloadBar(cpCurrentFetchKey || company) : ''}`;
 
   el('ats-rescore-btn')?.addEventListener('click', () => {
     const input = el('chat-input');
