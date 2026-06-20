@@ -354,10 +354,11 @@ function renderCompanies(data) {
     <span>Research a company</span>
   </div>`;
 
-  // Dashboard mini-grid: savedJobs first, then researched companies
+  // Dashboard mini-grid: savedJobs first, then researched companies (excluding any already in savedJobs)
+  const savedCos = new Set(savedJobs.map(j => j.company.toLowerCase()));
   const combined = [
     ...savedJobs.map(makeSavedJobCard),
-    ...companies.map(makeCompanyCard),
+    ...companies.filter(c => !savedCos.has(c.name.toLowerCase())).map(makeCompanyCard),
   ];
   const miniGrid = combined.slice(0, 7).join('') + (combined.length < 8 ? addCard : '');
   el('companies-grid').innerHTML = miniGrid || addCard;
@@ -376,9 +377,12 @@ function renderSavedTab(data) {
       || '<div style="color:var(--muted);font-size:13px;padding:8px">No saved jobs yet.</div>';
   }
 
+  const savedCompanyNames = new Set(savedJobs.map(j => j.company.toLowerCase()));
+  const researchedOnly = companies.filter(c => !savedCompanyNames.has(c.name.toLowerCase()));
+
   const fullGrid = el('companies-grid-full');
   if (fullGrid) {
-    fullGrid.innerHTML = companies.map(makeCompanyCard).join('')
+    fullGrid.innerHTML = researchedOnly.map(makeCompanyCard).join('')
       || '<div style="color:var(--muted);font-size:13px;padding:8px">No companies researched yet.</div>';
   }
 }
