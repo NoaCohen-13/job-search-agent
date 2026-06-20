@@ -4,7 +4,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { marked } from 'marked';
 import { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } from 'docx';
-import { sendMessage, resetSession, listSessions, resumeSession, deleteSession, addMessage } from './agent.js';
+import { sendMessage, resetSession, listSessions, resumeSession, deleteSession, addMessage, initSession } from './agent.js';
 import puppeteer from 'puppeteer-core';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -193,6 +193,7 @@ app.delete('/api/sessions/:id', (req, res) => {
 app.post('/api/session/message', (req, res) => {
   const { role, text } = req.body;
   if (!role || !text) return res.status(400).json({ error: 'role and text required' });
+  initSession();
   addMessage(role, text);
   res.json({ ok: true });
 });

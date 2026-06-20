@@ -46,6 +46,18 @@ function saveSessionId(sessionId) {
   } catch {}
 }
 
+export function initSession() {
+  if (existsSync(SESSION_FILE)) return;
+  const now = new Date();
+  writeFileSync(SESSION_FILE, JSON.stringify({
+    sessionId: null,
+    title: fmtTitle(now),
+    createdAt: now.toISOString(),
+    lastActive: now.toISOString(),
+    messages: [],
+  }, null, 2));
+}
+
 export function addMessage(role, text) {
   try {
     const meta = loadSessionMeta();
