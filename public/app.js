@@ -1,6 +1,7 @@
 // ── State ──────────────────────────────────────────────────────────────────
 let chart = null;
 let isStreaming = false;
+let abortController = null;
 let currentBubble = null;
 let currentBubbleText = '';
 let pollTimer = null;
@@ -520,16 +521,19 @@ async function sendMessage(text) {
   const sendText = preprocessMessage(text); // strip slash before hitting the SDK
 
   isStreaming = true;
+  abortController = new AbortController();
   currentBubble = null;
   currentBubbleText = '';
 
   const input = el('chat-input');
   const btn = el('send-btn');
+  const stopBtn = el('stop-btn');
   const status = el('agent-status');
 
   input.value = '';
   input.style.height = 'auto';
-  btn.disabled = true;
+  btn.style.display = 'none';
+  stopBtn.style.display = 'flex';
   status.textContent = '● Thinking…';
   status.className = 'status thinking';
 
@@ -542,6 +546,7 @@ async function sendMessage(text) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: sendText }),
+      signal: abortController.signal,
     });
 
     if (!response.ok) throw new Error(`Server error ${response.status}`);
@@ -580,11 +585,17 @@ async function sendMessage(text) {
     }
   } catch (err) {
     removeTyping();
-    appendMessage('agent', `Something went wrong: ${err.message}`);
+    if (err.name !== 'AbortError') {
+      appendMessage('agent', `Something went wrong: ${err.message}`);
+    } else if (currentBubbleText) {
+      fetch('/api/session/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'agent', text: currentBubbleText }) }).catch(() => {});
+    }
   } finally {
     isStreaming = false;
+    abortController = null;
     currentBubble = null;
-    btn.disabled = false;
+    btn.style.display = 'flex';
+    stopBtn.style.display = 'none';
     status.textContent = '● Ready';
     status.className = 'status';
     el('chat-messages').scrollTop = el('chat-messages').scrollHeight;
@@ -1260,6 +1271,10 @@ function switchTab(name) {
 function initListeners() {
   el('send-btn').addEventListener('click', () => {
     sendMessage(el('chat-input').value);
+  });
+
+  el('stop-btn').addEventListener('click', () => {
+    if (abortController) abortController.abort();
   });
 
   el('chat-input').addEventListener('keydown', (e) => {

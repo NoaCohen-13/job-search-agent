@@ -258,6 +258,8 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .chat-input::placeholder { color: #94a3b8; }
 .send-btn { width: 28px; height: 28px; border-radius: 7px; background: var(--accent); border: none; color: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: opacity 0.15s; }
 .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.stop-btn { width: 28px; height: 28px; border-radius: 7px; background: #ef4444; border: none; color: white; cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: opacity 0.15s; }
+.stop-btn:hover { opacity: 0.85; }
 .shortcuts { display: flex; gap: 5px; margin-top: 7px; flex-wrap: wrap; }
 .shortcut { background: white; border: 1px solid var(--border); border-radius: 20px; padding: 3px 9px; font-size: 11px; color: var(--muted); cursor: pointer; transition: all 0.15s; }
 .shortcut:hover { border-color: var(--accent); color: var(--accent); }
@@ -484,9 +486,9 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
   </div>
   <div class="tabs">
     <div class="tab active" data-tab="dashboard">Dashboard</div>
-    <div class="tab" data-tab="discover">Discover</div>
     <div class="tab" data-tab="applications">Applications</div>
     <div class="tab" data-tab="companies">Saved</div>
+    <div class="tab" data-tab="discover">Discover</div>
   </div>
   <div class="header-right">
     <div class="streak-badge" id="streak-badge">🔥 <span id="streak-count">0</span>-day streak</div>
@@ -694,6 +696,7 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
       <div class="chat-input-box">
         <textarea class="chat-input" id="chat-input" placeholder="Message your agent…" rows="1"></textarea>
         <button class="send-btn" id="send-btn">↑</button>
+        <button class="stop-btn" id="stop-btn" style="display:none" title="Stop generating">■</button>
       </div>
       <div class="shortcuts">
         <div class="shortcut" data-cmd="/find">/find</div>
