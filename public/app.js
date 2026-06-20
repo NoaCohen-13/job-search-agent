@@ -67,8 +67,9 @@ function renderStats(data) {
   el('stat-interviews').textContent = interviews;
   el('stat-companies').textContent = companies;
 
-  el('stat-applied-sub').textContent = applied === 0 ? 'none yet' : active > 0 ? `${active} active` : 'no replies yet';
-  el('stat-applied-sub').className = `stat-trend ${active > 0 ? 'trend-up' : 'trend-neutral'}`;
+  const responseRate = applied > 0 ? Math.round((applied - waiting) / applied * 100) : 0;
+  el('stat-applied-sub').textContent = applied === 0 ? 'none yet' : `${responseRate}% response rate`;
+  el('stat-applied-sub').className = `stat-trend ${responseRate >= 30 ? 'trend-up' : 'trend-neutral'}`;
 
   el('stat-waiting-sub').textContent = waiting > 0 ? `${waiting} waiting for reply` : '';
   el('stat-waiting-sub').className = `stat-trend trend-neutral`;
