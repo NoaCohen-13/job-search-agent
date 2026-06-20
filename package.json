@@ -10,6 +10,7 @@
     "@anthropic-ai/claude-agent-sdk": "latest",
     "docx": "^9.7.1",
     "express": "^4.19.0",
-    "marked": "^18.0.5"
+    "marked": "^18.0.5",
+    "puppeteer-core": "^25.1.0"
   }
 }

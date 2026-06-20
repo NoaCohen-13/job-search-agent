@@ -4,7 +4,8 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { marked } from 'marked';
 import { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } from 'docx';
-import { sendMessage, resetSession, listSessions, resumeSession, deleteSession } from './agent.js';
+import { sendMessage, resetSession, listSessions, resumeSession, deleteSession, addMessage } from './agent.js';
+import puppeteer from 'puppeteer-core';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = process.cwd();
@@ -186,6 +187,13 @@ app.post('/api/sessions/:id/resume', (req, res) => {
 
 app.delete('/api/sessions/:id', (req, res) => {
   deleteSession(req.params.id);
+  res.json({ ok: true });
+});
+
+app.post('/api/session/message', (req, res) => {
+  const { role, text } = req.body;
+  if (!role || !text) return res.status(400).json({ error: 'role and text required' });
+  addMessage(role, text);
   res.json({ ok: true });
 });
 
@@ -593,8 +601,22 @@ app.get('/api/resume/export', async (req, res) => {
   const markdown = readFileSync(resumePath, 'utf-8');
 
   if (format === 'pdf') {
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    return res.send(resumePrintHtml(markdown));
+    try {
+      const browser = await puppeteer.launch({
+        executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
+      const page = await browser.newPage();
+      await page.setContent(resumePrintHtml(markdown), { waitUntil: 'networkidle0' });
+      const pdf = Buffer.from(await page.pdf({ format: 'A4', margin: { top: '0.6in', right: '0.7in', bottom: '0.6in', left: '0.7in' } }));
+      await browser.close();
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${label}_Resume.pdf"`);
+      return res.end(pdf);
+    } catch (err) {
+      return res.status(500).json({ error: `PDF generation failed: ${err.message}` });
+    }
   }
 
   if (format === 'docx') {

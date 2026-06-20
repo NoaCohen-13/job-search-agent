@@ -534,6 +534,7 @@ async function sendMessage(text) {
   status.className = 'status thinking';
 
   appendMessage('user', displayText);
+  fetch('/api/session/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'user', text: displayText }) }).catch(() => {});
   showTyping();
 
   try {
@@ -565,6 +566,9 @@ async function sendMessage(text) {
             removeTyping();
             appendToken(event.content);
           } else if (event.type === 'done') {
+            if (currentBubbleText) {
+              fetch('/api/session/message', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'agent', text: currentBubbleText }) }).catch(() => {});
+            }
             await loadDashboard();
             await loadDiscover();
           } else if (event.type === 'error') {
@@ -1380,11 +1384,25 @@ async function startNewChat() {
 async function resumeHistorySession(sessionId) {
   const meta = await fetch(`/api/sessions/${sessionId}/resume`, { method: 'POST' }).then(r => r.json());
   closeHistory();
-  el('chat-messages').innerHTML = `
-    <div class="msg agent">
-      <div class="msg-bubble">Resumed conversation from ${esc(meta.title || 'earlier')}. Ask me to recap what we discussed, or just continue where we left off.</div>
-      <div class="msg-time">${now()}</div>
-    </div>`;
+  const container = el('chat-messages');
+  container.innerHTML = '';
+
+  if (meta.messages?.length) {
+    for (const msg of meta.messages) {
+      const div = document.createElement('div');
+      div.className = `msg ${msg.role}`;
+      const timeStr = msg.time ? new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      div.innerHTML = `<div class="msg-bubble">${esc(msg.text)}</div><div class="msg-time">${timeStr}</div>`;
+      container.appendChild(div);
+    }
+    container.scrollTop = container.scrollHeight;
+  } else {
+    container.innerHTML = `
+      <div class="msg agent">
+        <div class="msg-bubble">Resumed conversation from ${esc(meta.title || 'earlier')}. Ask me to recap what we discussed, or just continue where we left off.</div>
+        <div class="msg-time">${now()}</div>
+      </div>`;
+  }
 }
 
 async function deleteHistorySession(sessionId) {

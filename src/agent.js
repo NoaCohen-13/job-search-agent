@@ -41,7 +41,18 @@ function saveSessionId(sessionId) {
       title: existing?.title || fmtTitle(now),
       createdAt: existing?.createdAt || now.toISOString(),
       lastActive: now.toISOString(),
+      messages: existing?.messages || [],
     }));
+  } catch {}
+}
+
+export function addMessage(role, text) {
+  try {
+    const meta = loadSessionMeta();
+    if (!meta) return;
+    if (!meta.messages) meta.messages = [];
+    meta.messages.push({ role, text, time: new Date().toISOString() });
+    writeFileSync(SESSION_FILE, JSON.stringify(meta, null, 2));
   } catch {}
 }
 
