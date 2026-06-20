@@ -67,11 +67,8 @@ function renderStats(data) {
   el('stat-interviews').textContent = interviews;
   el('stat-companies').textContent = companies;
 
-  const subParts = [];
-  if (active > 0) subParts.push(`${active} active`);
-  if (closed > 0) subParts.push(`${closed} closed`);
-  el('stat-applied-sub').textContent = applied === 0 ? 'none yet' : subParts.join(' · ') || 'no replies yet';
-  el('stat-applied-sub').className = `stat-trend ${closed > 0 ? 'trend-neutral' : active > 0 ? 'trend-up' : 'trend-neutral'}`;
+  el('stat-applied-sub').textContent = applied === 0 ? 'none yet' : active > 0 ? `${active} active` : 'no replies yet';
+  el('stat-applied-sub').className = `stat-trend ${active > 0 ? 'trend-up' : 'trend-neutral'}`;
 
   el('stat-waiting-sub').textContent = waiting > 0 ? `${waiting} waiting for reply` : '';
   el('stat-waiting-sub').className = `stat-trend trend-neutral`;
