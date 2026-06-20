@@ -29,6 +29,10 @@ workspace/
       job_description.md    ← JD saved before applying
       tailored_resume.md    ← tailored resume draft
       ats_score.json        ← fit score from pre-application scoring
+    [company-slug]-[role-slug]/   ← saved job folder (created when user saves a position from Discover)
+      job_description.md          ← JD from Discover (id = slugify(company) + "-" + slugify(role))
+      tailored_resume.md
+      ats_score.json
 
   courses/
     learning_plan.md        ← skill gaps + course tracking
@@ -66,10 +70,9 @@ workspace/
 
 ### 3. Tailor Resume / Cover Letter — `Tailor for [company/role]`
 1. Read `workspace/resume/base_resume.md` as the foundation — never alter the base file.
-2. Find the job description — check in order:
-   - `workspace/applications/[company-name]/job_description.md` (if already applied)
-   - `workspace/companies/[company-name]/job_description.md` (if pre-application stage)
-   - If neither exists, ask the user to paste the JD and save it to the pre-application folder.
+2. Find the working folder using the same lookup as /score (savedJob id first, then application, then company slug).
+3. Find the job description — look for `job_description.md` in the working folder.
+   - If not found, ask the user to paste the JD and save it to the working folder.
 3. Identify the top 3-5 skills/keywords the JD emphasizes.
 4. Rewrite the resume summary and reorder/rephrase bullet points to match — do not fabricate experience.
 5. Save the tailored version to the same folder the JD came from (`tailored_resume.md`).
@@ -94,10 +97,10 @@ workspace/
 ### 6. Score Resume Fit — `/score [company]`
 This works both **before and after applying**. Run it to check fit, tailor, then re-score before submitting.
 
-**Step 1 — Locate files:**
-- Slug the company name (lowercase, hyphens).
-- If applied: use `workspace/applications/[slug]/` as the working folder.
-- If not yet applied: use `workspace/companies/[slug]/` as the working folder (create it if needed).
+**Step 1 — Locate the working folder (in this exact order):**
+1. Read `data.json` → check `savedJobs` array for an entry where `id === argument`. If found: working folder = `workspace/companies/[savedJob.id]/`. **Do not slugify the company name — use the full savedJob id as-is.**
+2. Check `data.json` → `applications` for a matching company. If found: working folder = `workspace/applications/[app.id]/`.
+3. Otherwise: working folder = `workspace/companies/[slugify(argument)]/`.
 
 **Step 2 — Find the JD:**
 - Look for `job_description.md` in the working folder.

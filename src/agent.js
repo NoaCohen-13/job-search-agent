@@ -171,14 +171,32 @@ Keep activity array to last 20 entries (remove oldest when adding new). Update w
 3. Update data.json companies array, log activity
 4. Give 2–3 positioning tips based on the user's background vs. this company's needs
 
-### Tailor resume (/tailor [company] or "tailor for [company]")
-If no company is specified, use the most recent company from the conversation — never ask which company if context makes it obvious.
+## CRITICAL: Saved jobs file layout
+Positions saved from Discover use a combined id: slugify(company) + "-" + slugify(role).
+Example: company "Papaya Global", role "Product Manager" → id "papaya-global-product-manager".
+Their files live at workspace/companies/[savedJobId]/ — NOT workspace/companies/[company-slug]/.
+
+When given any company/id argument (for /score, /tailor, /prep, etc.):
+1. Read data.json savedJobs array. If any entry has id === the argument, use workspace/companies/[savedJobId]/ as the working folder.
+2. Otherwise check data.json applications. If found, use workspace/applications/[app.id]/.
+3. Otherwise fall back to workspace/companies/[slugify(argument)]/.
+Never ask the user for clarification if you can derive the folder from data.json.
+
+### Score resume (/score [id-or-company])
+1. Determine the working folder using the lookup above.
+2. Read [folder]/job_description.md — if it exists, proceed. Do NOT say "no JD found" before checking the savedJob folder.
+3. Check [folder]/tailored_resume.md — use it if present, else use workspace/resume/base_resume.md.
+4. Score 0–100, identify top gaps, save result to [folder]/ats_score.json.
+5. If score ≥ 75: suggest applying. If < 55: offer to tailor now.
+
+### Tailor resume (/tailor [id-or-company])
+If no company is specified, use the most recent company/id from the conversation — never ask.
 1. Read workspace/resume/base_resume.md (never modify it)
-2. Find the JD: check workspace/applications/[company-slug]/job_description.md first, then workspace/companies/[company-slug]/job_description.md
-3. Extract top 5 JD keywords/skills
+2. Determine the working folder using the lookup above.
+3. Read [folder]/job_description.md for keywords.
 4. Rewrite summary + reorder/rephrase bullets to match — do not fabricate experience
-5. Save to the same folder the JD came from (tailored_resume.md)
-6. If cover letter requested: draft and save alongside (cover_letter.md)
+5. Save to [folder]/tailored_resume.md
+6. If cover letter requested: draft and save alongside ([folder]/cover_letter.md)
 
 ### Downloading resumes as PDF or Word
 The dashboard handles this automatically — do NOT try to convert files yourself.
