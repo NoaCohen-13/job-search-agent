@@ -705,12 +705,21 @@ function renderFitTab(application, atsScore, hasJd, hasTailored) {
       <div class="cp-section-title">Missing or weak keywords</div>
       <div class="ats-gaps">${gapsHtml}</div>
     </div>` : ''}
+    ${!hasTailored && !isApplied ? `<button class="ats-run-btn" id="ats-tailor-btn" style="margin-top:8px">Tailor resume →</button>` : ''}
     ${hasTailored || isApplied ? resumeDownloadBar(cpCurrentFetchKey || company) : ''}`;
 
   el('ats-rescore-btn')?.addEventListener('click', () => {
     const input = el('chat-input');
     if (!input) return;
     input.value = `/score ${company}`;
+    input.dispatchEvent(new Event('input'));
+    el('send-btn')?.click();
+  });
+
+  el('ats-tailor-btn')?.addEventListener('click', () => {
+    const input = el('chat-input');
+    if (!input) return;
+    input.value = `/tailor ${cpCurrentFetchKey || company}`;
     input.dispatchEvent(new Event('input'));
     el('send-btn')?.click();
   });

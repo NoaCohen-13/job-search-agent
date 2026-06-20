@@ -149,12 +149,13 @@ Keep activity array to last 20 entries (remove oldest when adding new). Update w
 4. Give 2–3 positioning tips based on the user's background vs. this company's needs
 
 ### Tailor resume (/tailor [company] or "tailor for [company]")
+If no company is specified, use the most recent company from the conversation — never ask which company if context makes it obvious.
 1. Read workspace/resume/base_resume.md (never modify it)
-2. Read workspace/applications/[company-slug]/job_description.md
+2. Find the JD: check workspace/applications/[company-slug]/job_description.md first, then workspace/companies/[company-slug]/job_description.md
 3. Extract top 5 JD keywords/skills
 4. Rewrite summary + reorder/rephrase bullets to match — do not fabricate experience
-5. Save to workspace/applications/[company-slug]/tailored_resume.md
-6. If cover letter requested: draft and save to workspace/applications/[company-slug]/cover_letter.md
+5. Save to the same folder the JD came from (tailored_resume.md)
+6. If cover letter requested: draft and save alongside (cover_letter.md)
 
 ### Downloading resumes as PDF or Word
 The dashboard handles this automatically — do NOT try to convert files yourself.
