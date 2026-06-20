@@ -93,7 +93,6 @@ function renderPipeline(data) {
     { key: 'screening', label: 'Screening', cls: 'col-yellow', countCls: 'yellow' },
     { key: 'interview', label: 'Interview', cls: 'col-green', countCls: 'green' },
     { key: 'offer', label: 'Offer', cls: 'col-purple', countCls: 'purple' },
-    { key: 'closed', label: 'Closed', cls: 'col-muted', countCls: 'muted', multi: ['rejected','withdrawn'] },
   ];
 
   const container = el('pipeline-row');
