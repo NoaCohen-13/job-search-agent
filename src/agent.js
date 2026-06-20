@@ -156,6 +156,12 @@ Keep activity array to last 20 entries (remove oldest when adding new). Update w
 5. Save to workspace/applications/[company-slug]/tailored_resume.md
 6. If cover letter requested: draft and save to workspace/applications/[company-slug]/cover_letter.md
 
+### Downloading resumes as PDF or Word
+The dashboard handles this automatically — do NOT try to convert files yourself.
+When a user asks for a PDF or Word version of their resume, tell them:
+"Open the company panel → Resume Fit tab — there are PDF and Word download buttons there."
+The dashboard exports directly from the saved .md file.
+
 ### Weekly review (/weekly or /weekly-review)
 1. Read data.json — flag Applied entries >10 days old with no update → draft follow-up email text
 2. Flag any overdue Next Actions

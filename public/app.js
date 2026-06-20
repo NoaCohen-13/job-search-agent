@@ -594,11 +594,12 @@ function atsFitDot(score) {
   return `<span class="ats-dot ${cls}">${label}</span>`;
 }
 
-function resumeDownloadBar(key) {
+function resumeDownloadBar(key, isTailored) {
   if (!key) return '';
   const enc = encodeURIComponent(key);
+  const label = isTailored ? 'Download tailored resume' : 'Download base resume';
   return `<div class="resume-download-bar">
-    <span class="resume-download-label">Download resume</span>
+    <span class="resume-download-label">${label}</span>
     <a class="resume-dl-btn" href="/api/resume/export?company=${enc}&format=pdf" target="_blank">PDF</a>
     <a class="resume-dl-btn" href="/api/resume/export?company=${enc}&format=docx">Word</a>
   </div>`;
@@ -647,7 +648,7 @@ function renderFitTab(application, atsScore, hasJd, hasTailored) {
           ${showBtn ? `<button class="ats-run-btn" id="ats-run-btn">Run score →</button>` : ''}
         </div>
       </div>
-      ${(hasTailored || isApplied) ? resumeDownloadBar(cpCurrentFetchKey || company) : ''}`;
+      ${hasJd || hasTailored || isApplied ? resumeDownloadBar(cpCurrentFetchKey || company, hasTailored || isApplied) : ''}`;
 
     el('ats-run-btn')?.addEventListener('click', () => {
       const input = el('chat-input');
@@ -704,7 +705,8 @@ function renderFitTab(application, atsScore, hasJd, hasTailored) {
     ${gaps?.length ? `<div class="cp-section">
       <div class="cp-section-title">Missing or weak keywords</div>
       <div class="ats-gaps">${gapsHtml}</div>
-    </div>` : ''}`;
+    </div>` : ''}
+    ${resumeDownloadBar(cpCurrentFetchKey || company, hasTailored || isApplied)}`;
 
   el('ats-rescore-btn')?.addEventListener('click', () => {
     const input = el('chat-input');
@@ -713,8 +715,6 @@ function renderFitTab(application, atsScore, hasJd, hasTailored) {
     input.dispatchEvent(new Event('input'));
     el('send-btn')?.click();
   });
-
-  view.innerHTML += resumeDownloadBar(cpCurrentFetchKey || company);
 }
 
 // ── Company Panel ──────────────────────────────────────────────────────────
