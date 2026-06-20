@@ -781,6 +781,11 @@ async function loadCompanyData(displayName, fetchKey) {
   try {
     const res = await fetch(`/api/company?name=${encodeURIComponent(key)}`);
     const data = await res.json();
+    // If the API resolved via a savedJob fallback, update the fetch key so
+    // scoring/tailoring commands target the correct folder
+    if (data.savedJob && !fetchKey) {
+      cpCurrentFetchKey = data.savedJob.id;
+    }
     renderCompanyPanel(data, displayName);
   } catch (err) {
     el('cp-view-overview').innerHTML = `<div class="cp-section-empty">Failed to load: ${err.message}</div>`;

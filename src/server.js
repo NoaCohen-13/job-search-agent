@@ -283,13 +283,29 @@ app.get('/api/company', (req, res) => {
     hasTailored = existsSync(resolve(dir, 'tailored_resume.md'));
   } else {
     const slug = slugify(name);
-    const dir = resolve(ROOT, 'workspace', 'companies', slug);
+    let dir = resolve(ROOT, 'workspace', 'companies', slug);
+    let savedJobFallback = null;
+
+    // If no JD in the company folder, fall back to the most recent savedJob for this company
+    if (!existsSync(resolve(dir, 'job_description.md'))) {
+      const companySavedJobs = (data.savedJobs || [])
+        .filter(j => j.company.toLowerCase() === name.toLowerCase())
+        .sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+      if (companySavedJobs.length > 0) {
+        savedJobFallback = companySavedJobs[0];
+        dir = resolve(ROOT, 'workspace', 'companies', savedJobFallback.id);
+      }
+    }
+
     const scorePath = resolve(dir, 'ats_score.json');
     if (existsSync(scorePath)) {
       try { atsScore = JSON.parse(readFileSync(scorePath, 'utf-8')); } catch {}
     }
     hasJd = existsSync(resolve(dir, 'job_description.md'));
     hasTailored = existsSync(resolve(dir, 'tailored_resume.md'));
+    if (savedJobFallback) {
+      return res.json({ savedJob: savedJobFallback, company, application: null, research, interviewNotes, userNotes, atsScore, hasJd, hasTailored });
+    }
   }
   res.json({ company, application, research, interviewNotes, userNotes, atsScore, hasJd, hasTailored });
 });
