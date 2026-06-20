@@ -63,7 +63,7 @@ export async function getLastEmailForCompany(companyName) {
     if (!auth) return null;
     const gmail = google.gmail({ version: 'v1', auth });
 
-    const q = `"${companyName}" in:anywhere -category:promotions -category:social`;
+    const q = `"${companyName}" in:anywhere -category:promotions -category:social -subject:"weekly job search digest"`;
     const list = await gmail.users.messages.list({ userId: 'me', q, maxResults: 1 });
     const messages = list.data.messages;
     if (!messages?.length) return null;
@@ -78,6 +78,54 @@ export async function getLastEmailForCompany(companyName) {
       date: get('Date'),
       snippet: msg.data.snippet || '',
       timestamp: msg.data.internalDate ? new Date(parseInt(msg.data.internalDate)).toISOString() : null,
+      messageId: messages[0].id,
+    };
+  } catch { return null; }
+}
+
+const REJECTION_SIGNALS = [
+  'regret to inform', 'regret that', 'not moving forward', 'will not be moving',
+  'not selected', 'not been selected', 'not successful', 'have decided not',
+  'not a fit', 'not the right fit', 'not a good fit', 'decided to move forward with other',
+  'filled the position', 'position has been filled', 'no longer considering',
+  'unfortunately', 'at this time we', 'we will not', 'not proceed',
+];
+const INTERVIEW_SIGNALS = [
+  'interview', 'schedule a call', 'schedule time', 'availability', 'meet with',
+  'next steps', 'next round', 'phone screen', 'video call', 'zoom', 'teams call',
+];
+
+export function detectEmailStatus(email) {
+  if (!email) return null;
+  const text = `${email.subject} ${email.snippet}`.toLowerCase();
+  if (REJECTION_SIGNALS.some(s => text.includes(s))) return 'rejected';
+  if (INTERVIEW_SIGNALS.some(s => text.includes(s))) return 'interview';
+  return null;
+}
+
+// Searches specifically for interview invitation emails from a company
+export async function getInterviewEmailForCompany(companyName) {
+  try {
+    const auth = await getAuthedClient();
+    if (!auth) return null;
+    const gmail = google.gmail({ version: 'v1', auth });
+
+    const q = `"${companyName}" (interview OR "schedule a call" OR "schedule time" OR availability OR "next steps" OR "next round" OR "phone screen" OR "video call" OR "let's meet" OR "lets meet" OR "meet with you" OR "invitation") in:anywhere -category:promotions -category:social -subject:"weekly job search digest"`;
+    const list = await gmail.users.messages.list({ userId: 'me', q, maxResults: 1 });
+    const messages = list.data.messages;
+    if (!messages?.length) return null;
+
+    const msg = await gmail.users.messages.get({ userId: 'me', id: messages[0].id, format: 'metadata', metadataHeaders: ['Subject', 'From', 'Date'] });
+    const headers = msg.data.payload?.headers || [];
+    const get = (name) => headers.find(h => h.name === name)?.value || '';
+
+    return {
+      subject: get('Subject'),
+      from: get('From'),
+      date: get('Date'),
+      snippet: msg.data.snippet || '',
+      timestamp: msg.data.internalDate ? new Date(parseInt(msg.data.internalDate)).toISOString() : null,
+      messageId: messages[0].id,
     };
   } catch { return null; }
 }

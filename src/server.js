@@ -4,9 +4,9 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { marked } from 'marked';
 import { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } from 'docx';
-import { sendMessage, resetSession, listSessions, resumeSession, deleteSession, addMessage, initSession } from './agent.js';
+import { sendMessage, searchPositions, resetSession, listSessions, resumeSession, deleteSession, addMessage, initSession } from './agent.js';
 import puppeteer from 'puppeteer-core';
-import { getAuthUrl, handleCallback, isConnected, getEmailSummaries } from './gmail.js';
+import { getAuthUrl, handleCallback, isConnected, getEmailSummaries, getInterviewEmailForCompany, detectEmailStatus } from './gmail.js';
 import { startScheduler, triggerDiscover, triggerDigest } from './scheduler.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -119,13 +119,37 @@ app.get('/api/data', async (req, res) => {
   }
   data.gmailConnected = isConnected();
 
-  // Attach last email info for active applications when Gmail is connected
+  // Attach last email info and auto-detect status changes when Gmail is connected
   if (data.gmailConnected && data.applications?.length) {
     const active = data.applications.filter(a => ['applied','screening','interview','offer'].includes(a.status));
     if (active.length) {
       const emails = await getEmailSummaries(active.map(a => a.company));
-      for (const app of active) {
-        if (emails[app.company]) app.lastEmail = emails[app.company];
+      let dataChanged = false;
+      // Also fetch interview-specific emails for all active apps in parallel
+      const interviewEmails = await Promise.all(
+        active.map(a => getInterviewEmailForCompany(a.company))
+      );
+      for (let i = 0; i < active.length; i++) {
+        const app = active[i];
+        const email = emails[app.company];
+        if (email) {
+          app.lastEmail = email;
+          app.lastEmail.detectedStatus = detectEmailStatus(email);
+        }
+        const interviewEmail = interviewEmails[i];
+        if (interviewEmail) app.interviewEmail = interviewEmail;
+
+        // Auto-update status from most recent email
+        if (app.lastEmail?.detectedStatus && app.lastEmail.detectedStatus !== app.status) {
+          if (app.lastEmail.detectedStatus === 'rejected' ||
+              (app.lastEmail.detectedStatus === 'interview' && ['applied','screening'].includes(app.status))) {
+            app.status = app.lastEmail.detectedStatus;
+            dataChanged = true;
+          }
+        }
+      }
+      if (dataChanged) {
+        writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
       }
     }
   }
@@ -219,7 +243,7 @@ app.delete('/api/application', (req, res) => {
   const before = data.applications.length;
   data.applications = data.applications.filter(a => a.id !== id);
   if (data.applications.length === before) return res.status(404).json({ error: 'not found' });
-  data.stats.totalApplied = data.applications.length;
+  // totalApplied is a lifetime counter — never decremented on delete
   data.stats.activeInterviews = data.applications.filter(a => a.status === 'interview').length;
   const replied = data.applications.filter(a => ['screening','interview','offer','rejected'].includes(a.status)).length;
   data.stats.responseRate = data.stats.totalApplied > 0 ? Math.round(replied / data.stats.totalApplied * 100) : 0;
@@ -322,6 +346,23 @@ app.get('/api/company', (req, res) => {
     }
   }
   res.json({ company, application, research, interviewNotes, userNotes, atsScore, hasJd, hasTailored });
+});
+
+app.get('/api/company/positions', async (req, res) => {
+  const { name } = req.query;
+  if (!name) return res.status(400).json({ error: 'name required' });
+  try {
+    const raw = await searchPositions(name);
+    const lines = raw.split('\n').filter(l => l.startsWith('POSITION:'));
+    if (lines.length === 0) return res.json({ positions: [] });
+    const positions = lines.map(l => {
+      const parts = l.replace('POSITION:', '').split('|').map(s => s.trim());
+      return { title: parts[0] || '', url: parts[1] || '', fit: parts[2] || '' };
+    }).filter(p => p.title);
+    res.json({ positions });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post('/api/company/contacts', (req, res) => {

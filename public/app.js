@@ -6,6 +6,35 @@
   marked.setOptions({ renderer });
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+function isJobAgentEmail(email) {
+  if (!email) return false;
+  const sub = (email.subject || '').toLowerCase();
+  const from = (email.from || '').toLowerCase();
+  return sub.includes('job search digest') || sub.includes('weekly digest') || from.includes('jobagent');
+}
+function linkedinIcon(size = 14) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}" style="flex-shrink:0;display:inline-block;vertical-align:middle">
+    <rect width="24" height="24" rx="4" fill="#0A66C2"/>
+    <path fill="white" d="M7.75 9.5H5.25v9h2.5v-9zm-1.25-4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM19 18.5h-2.5v-4.25c0-1.1-.4-1.75-1.35-1.75-.95 0-1.4.65-1.4 1.75V18.5H11.25v-9H13.5v1.1c.5-.75 1.35-1.35 2.5-1.35 1.85 0 3 1.2 3 3.5V18.5z"/>
+  </svg>`;
+}
+
+function linkedinLink(company) {
+  const slug = company.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return `https://www.linkedin.com/company/${slug}`;
+}
+
+function gmailIcon(size = 16) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="52 42 88 66" width="${size}" height="${Math.round(size * 0.75)}" style="flex-shrink:0;display:inline-block;vertical-align:middle">
+    <path fill="#4285f4" d="M58 108h14V74L52 59v43c0 3.32 2.69 6 6 6"/>
+    <path fill="#34a853" d="M120 108h14c3.32 0 6-2.69 6-6V59l-20 15"/>
+    <path fill="#fbbc04" d="M120 48v26l20-15v-8c0-7.42-8.47-11.65-14.4-7.2"/>
+    <path fill="#ea4335" d="M72 74V48l24 18 24-18v26L96 92"/>
+    <path fill="#c5221f" d="M52 51v8l20 15V48l-5.6-4.2C60.47 39.35 52 43.58 52 51"/>
+  </svg>`;
+}
+
 // ── State ──────────────────────────────────────────────────────────────────
 let chart = null;
 let isStreaming = false;
@@ -65,7 +94,6 @@ function renderStats(data) {
 
   el('stat-applied').textContent = applied;
   el('stat-interviews').textContent = interviews;
-  el('stat-companies').textContent = companies;
 
   el('stat-waiting-sub').textContent = waiting > 0 ? `${waiting} waiting for reply` : '';
   el('stat-waiting-sub').className = `stat-trend trend-neutral`;
@@ -73,10 +101,10 @@ function renderStats(data) {
   el('stat-interviews-sub').textContent = interviews > 0 ? 'in progress' : 'none active';
   el('stat-interviews-sub').className = `stat-trend ${interviews > 0 ? 'trend-warn' : 'trend-neutral'}`;
 
-  const appliedCos = (data.companies || []).filter(c => !['researched'].includes(c.status)).length;
-  el('stat-companies-sub').textContent = companies === 0 ? 'start researching' : appliedCos > 0 ? `${appliedCos} applied` : 'none applied yet';
+  const offers = apps.filter(a => a.status === 'offer').length;
+  el('stat-companies').textContent = offers;
+  el('stat-companies-sub').textContent = offers > 0 ? `${offers > 1 ? 'negotiating' : 'in negotiation'}` : 'none yet';
 
-  el('streak-count').textContent = data.stats.streak;
   el('greeting').textContent = greeting();
 }
 
@@ -94,11 +122,24 @@ function renderPipeline(data) {
     const items = stage.multi ? apps.filter(a => stage.multi.includes(a.status)) : apps.filter(a => a.status === stage.key);
     const makeCard = (a, hidden) => {
       const dot = a.atsScore ? `<div class="pipe-card-foot">${atsFitDot(a.atsScore.score)}</div>` : '';
-      const emailLine = a.lastEmail
-        ? `<div class="pipe-card-email" title="${esc(a.lastEmail.subject)}">✉ ${relativeTime(a.lastEmail.timestamp)}</div>`
+      const realEmail = (a.interviewEmail && !isJobAgentEmail(a.interviewEmail))
+        ? a.interviewEmail
+        : (!isJobAgentEmail(a.lastEmail) ? a.lastEmail : null);
+      const emailGmailUrl = realEmail
+        ? (realEmail.messageId
+            ? `https://mail.google.com/mail/u/0/#all/${realEmail.messageId}`
+            : `https://mail.google.com/mail/u/0/#search/${encodeURIComponent('subject:"' + (realEmail.subject || a.company) + '"')}`)
+        : null;
+      const emailLine = realEmail
+        ? `<a class="pipe-card-email" title="${esc(realEmail.subject)}" href="${emailGmailUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${gmailIcon(16)}${relativeTime(realEmail.timestamp)}</a>`
         : '';
+      const liJobUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(a.role + ' ' + a.company)}&location=Israel`;
+      const liLink = `<a class="pipe-card-li" href="${liJobUrl}" target="_blank" rel="noopener" title="Search this role on LinkedIn" onclick="event.stopPropagation()">${linkedinIcon(13)}</a>`;
       return `<div class="pipe-card ${stage.cls}${hidden ? ' pipe-card-extra' : ''}">
-        <div class="pipe-card-name">${esc(a.company)}</div>
+        <div class="pipe-card-header">
+          <div class="pipe-card-name">${esc(a.company)}</div>
+          ${liLink}
+        </div>
         <div class="pipe-card-role">${esc(a.role)}</div>
         ${emailLine}${dot}
       </div>`;
@@ -152,13 +193,7 @@ function renderChart(data) {
 }
 
 function renderActivity(data) {
-  const items = (data.activity || []).slice(0, 6);
   const container = el('activity-list');
-
-  if (items.length === 0) {
-    container.innerHTML = '<div class="activity-empty">No activity yet — start by logging an application.</div>';
-    return;
-  }
 
   const dotColors = {
     application: 'var(--green)',
@@ -168,13 +203,118 @@ function renderActivity(data) {
     skill: '#0891b2',
   };
 
-  container.innerHTML = [...items].reverse().map(item =>
-    `<div class="activity-item">
+  // 1. Build Gmail events first — they're authoritative for their company+status
+  const emailEvents = [];
+  const gmailCovers = new Map(); // company -> Set of statuses Gmail covers ('interview'|'rejected')
+  for (const a of (data.applications || [])) {
+    // Interview invite — dedicated keyword search (skip self-sent digest emails)
+    if (a.interviewEmail?.timestamp && !isJobAgentEmail(a.interviewEmail)) {
+      emailEvents.push({ type: 'email', text: `Interview invite from ${a.company}`, subtext: a.interviewEmail.subject, timestamp: a.interviewEmail.timestamp, company: a.company, messageId: a.interviewEmail.messageId, _gmail: true, _interview: true });
+      if (!gmailCovers.has(a.company)) gmailCovers.set(a.company, new Set());
+      gmailCovers.get(a.company).add('interview');
+    }
+    // Most recent email — detected or plain (skip self-sent digest emails)
+    if (a.lastEmail?.timestamp && !isJobAgentEmail(a.lastEmail)) {
+      const s = a.lastEmail.detectedStatus;
+      const isInterview = s === 'interview';
+      const isRejection = s === 'rejected';
+      const text = isRejection ? `Rejection from ${a.company}`
+                 : isInterview ? `Interview invite from ${a.company}`
+                 : `Email from ${a.company}`;
+      // Only add if not already covered by the interviewEmail entry for same company+type
+      const alreadyCovered = a.interviewEmail?.timestamp && isInterview;
+      if (!alreadyCovered) {
+        emailEvents.push({ type: 'email', text, subtext: a.lastEmail.subject, timestamp: a.lastEmail.timestamp, company: a.company, messageId: a.lastEmail.messageId, _gmail: true, _interview: isInterview });
+        if (s) {
+          if (!gmailCovers.has(a.company)) gmailCovers.set(a.company, new Set());
+          gmailCovers.get(a.company).add(s);
+        }
+      }
+    }
+  }
+
+  const knownCompanies = (data.applications || []).map(a => a.company);
+
+  function activityCompany(text) {
+    const lower = text.toLowerCase();
+    return knownCompanies.find(c => lower.startsWith(c.toLowerCase()) || lower.includes(` at ${c.toLowerCase()}`)) || null;
+  }
+
+  function isRedundantWithGmail(text) {
+    const lower = text.toLowerCase();
+    for (const [company, statuses] of gmailCovers) {
+      const cLow = company.toLowerCase();
+      if (!lower.startsWith(cLow) && !lower.includes(` at ${cLow}`)) continue;
+      if (statuses.has('interview') && /interview|screen|schedule|moved to/.test(lower)) return true;
+      if (statuses.has('rejected') && lower.includes('reject')) return true;
+    }
+    return false;
+  }
+
+  // 2. Filter and deduplicate manual activity
+  // Sort newest-first so deduplication keeps the most recent per company
+  const STATUS_WORDS = ['applied', 'rejected', 'offer', 'interview', 'screening'];
+  const seenCompany = new Set();
+  const logged = (data.activity || [])
+    .filter(item =>
+      item.type === 'application' ||
+      item.type === 'interview' ||
+      (item.type === 'follow-up' && STATUS_WORDS.some(w => item.text.toLowerCase().includes(w)))
+    )
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    .filter(item => {
+      if (isRedundantWithGmail(item.text)) return false;
+      if (item.type === 'application') return true; // always show application events
+      const company = activityCompany(item.text);
+      if (company) {
+        if (seenCompany.has(company)) return false; // dedupe: one non-apply entry per company
+        seenCompany.add(company);
+      }
+      return true;
+    })
+    .map(item => ({ ...item, _gmail: false }));
+
+  // Gmail events always appear — they're authoritative and shouldn't be cut by the slice limit
+  const importantGmail = emailEvents.filter(e => e._interview || e.text.includes('Rejection'));
+  const otherGmail = emailEvents.filter(e => !e._interview && !e.text.includes('Rejection'));
+  const loggedSlice = logged.slice(0, 8 - importantGmail.length);
+  const allItems = [...importantGmail, ...loggedSlice, ...otherGmail]
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    .slice(0, 10);
+
+  // Debug: log what Gmail found (check browser console if icons are missing)
+  if (data.gmailConnected) console.log('[Gmail activity]', emailEvents.map(e => `${e.company}: ${e.text}`));
+
+  if (allItems.length === 0) {
+    container.innerHTML = '<div class="activity-empty">No activity yet — start by logging an application.</div>';
+    return;
+  }
+
+  container.innerHTML = allItems.map(item => {
+    const textColor = item._interview ? 'color:var(--green);font-weight:600' : '';
+    const sub = item.subtext ? `<div class="activity-subtext">${esc(item.subtext)}</div>` : '';
+    if (item._gmail) {
+      const gmailUrl = item.messageId
+        ? `https://mail.google.com/mail/u/0/#all/${item.messageId}`
+        : `https://mail.google.com/mail/u/0/#search/${encodeURIComponent('subject:"' + (item.subtext || item.company || '') + '"')}`;
+      return `<a class="activity-item activity-item-link" href="${gmailUrl}" target="_blank" rel="noopener">
+        <div class="activity-dot activity-dot-gmail">${gmailIcon(13)}</div>
+        <div class="activity-text-wrap">
+          <div class="activity-text" style="${textColor}">${esc(item.text)}</div>
+          ${sub}
+        </div>
+        <div class="activity-time">${timeAgo(item.timestamp)}</div>
+      </a>`;
+    }
+    return `<div class="activity-item">
       <div class="activity-dot" style="background:${dotColors[item.type] || 'var(--muted)'}"></div>
-      <div class="activity-text">${esc(item.text)}</div>
+      <div class="activity-text-wrap">
+        <div class="activity-text" style="${textColor}">${esc(item.text)}</div>
+        ${sub}
+      </div>
       <div class="activity-time">${timeAgo(item.timestamp)}</div>
-    </div>`
-  ).join('');
+    </div>`;
+  }).join('');
 }
 
 // ── Profile & Onboarding ──────────────────────────────────────────────────
@@ -196,6 +336,8 @@ function openOnboarding() {
   el('onboarding-overlay').classList.add('open');
   el('ob-role').value = userProfile?.targetRole || '';
   el('ob-location').value = userProfile?.location || '';
+  // Refresh Gmail status in the modal
+  fetch('/api/gmail/status').then(r => r.json()).then(d => updateGmailBtn(d.connected)).catch(() => {});
   setTimeout(() => el('ob-role').focus(), 100);
 }
 
@@ -226,7 +368,9 @@ function initOnboarding() {
   el('settings-btn').addEventListener('click', openOnboarding);
 
   el('gmail-btn').addEventListener('click', () => {
-    if (el('gmail-btn').classList.contains('connected')) return;
+    window.open('/api/auth/gmail', '_blank', 'width=500,height=600');
+  });
+  el('ob-gmail-connect').addEventListener('click', () => {
     window.open('/api/auth/gmail', '_blank', 'width=500,height=600');
   });
   el('ob-role').addEventListener('keydown', (e) => { if (e.key === 'Enter') el('ob-location').focus(); });
@@ -281,7 +425,7 @@ function renderDiscover(data) {
         <div class="discover-role">${esc(r.role)}</div>
         <div class="discover-location">${esc(r.location || '')}</div>
         ${r.description ? `<div class="discover-desc">${esc(r.description)}</div>` : ''}
-        ${r.url ? `<a class="discover-link" href="${esc(r.url)}" target="_blank" rel="noopener">View on ${esc(r.source || 'job board')} ↗</a>` : ''}
+        ${r.url ? `<a class="discover-link" href="${esc(r.url)}" target="_blank" rel="noopener">${r.source === 'LinkedIn' ? linkedinIcon(12) + ' ' : ''}View on ${esc(r.source || 'job board')} ↗</a>` : ''}
       </div>
       <div class="discover-actions">
         <button class="discover-dismiss-btn" data-idx="${i}" title="Remove">✕</button>
@@ -470,13 +614,20 @@ async function loadDashboard() {
 function updateGmailBtn(connected) {
   const btn = el('gmail-btn');
   if (!btn) return;
-  if (connected) {
-    btn.textContent = 'Gmail ✓';
-    btn.classList.add('connected');
-    btn.title = 'Gmail connected — email threads shown in pipeline';
-  } else {
-    btn.textContent = 'Connect Gmail';
-    btn.classList.remove('connected');
+  btn.style.display = connected ? 'none' : '';
+
+  // Keep onboarding modal Gmail section in sync
+  const obStatus = el('ob-gmail-status');
+  if (obStatus) {
+    if (connected) {
+      obStatus.innerHTML = '<span style="color:var(--green);font-weight:600">✓ Gmail connected</span> <span style="color:var(--muted);font-size:12px">— email threads show in your pipeline</span>';
+      const connectBtn = el('ob-gmail-connect');
+      if (connectBtn) connectBtn.style.display = 'none';
+    } else {
+      obStatus.innerHTML = '<span style="color:var(--muted);font-size:12px">Not connected</span>';
+      const connectBtn = el('ob-gmail-connect');
+      if (connectBtn) connectBtn.style.display = '';
+    }
   }
 }
 
@@ -1024,6 +1175,15 @@ function renderCompanyPanel(data, name) {
 
   // Overview
   let ov = '';
+
+  // Researched-only companies: show relevant positions at the top
+  if (!application && !savedJob) {
+    ov += `<div class="cp-section cp-positions-section" id="cp-positions-section">
+      <div class="cp-section-title">Open positions</div>
+      <div id="cp-positions-body" class="cp-positions-loading">Searching for open roles…</div>
+    </div>`;
+  }
+
   if (application) {
     ov += `<div class="cp-meta-row">
       <div class="cp-meta-item">
@@ -1058,6 +1218,29 @@ function renderCompanyPanel(data, name) {
   </div>`;
   el('cp-view-overview').innerHTML = ov;
   wireContactEvents(name);
+
+  // Load positions async for researched companies
+  if (!application && !savedJob) {
+    fetch(`/api/company/positions?name=${encodeURIComponent(name)}`)
+      .then(r => r.json())
+      .then(({ positions }) => {
+        const body = el('cp-positions-body');
+        if (!body) return;
+        if (!positions?.length) {
+          body.innerHTML = `<div class="cp-section-empty">No open PM roles found right now.</div>`;
+          return;
+        }
+        body.innerHTML = positions.map(p => `
+          <a class="cp-pos-card" href="${esc(p.url)}" target="_blank" rel="noopener">
+            <div class="cp-pos-title">${linkedinIcon(12)} ${esc(p.title)}</div>
+            ${p.fit ? `<div class="cp-pos-fit">${esc(p.fit)}</div>` : ''}
+          </a>`).join('');
+      })
+      .catch(() => {
+        const body = el('cp-positions-body');
+        if (body) body.innerHTML = '<div class="cp-section-empty">Search failed — try asking in chat.</div>';
+      });
+  }
 
   const statusBtns = el('cp-status-btns');
   if (statusBtns) {

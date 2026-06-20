@@ -103,7 +103,7 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 /* Pipeline */
 .pipeline-row { display: flex; gap: 10px; }
 .pipe-col { flex: 1; }
-.pipe-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.pipe-header { display: flex; align-items: center; justify-content: flex-start; gap: 8px; margin-bottom: 8px; }
 .pipe-name { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .pipe-count { font-size: 11px; font-weight: 700; }
 .pipe-count.blue { color: var(--accent); }
@@ -177,9 +177,19 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 /* Activity */
 .activity-list { display: flex; flex-direction: column; }
 .activity-item { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.activity-item-link { text-decoration: none; color: inherit; border-radius: 6px; margin: 0 -4px; padding: 8px 4px; transition: background 0.15s; }
+.activity-item-link:hover { background: var(--bg); }
 .activity-item:last-child { border-bottom: none; }
 .activity-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
-.activity-text { font-size: 12px; line-height: 1.5; flex: 1; }
+.activity-dot-gmail { width: auto; height: auto; background: none; border-radius: 0; margin-top: 3px; display: flex; align-items: center; }
+.cp-positions-loading { font-size: 12px; color: var(--muted); font-style: italic; }
+.cp-pos-card { display: block; text-decoration: none; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; margin-bottom: 6px; transition: border-color 0.15s, background 0.15s; }
+.cp-pos-card:hover { border-color: var(--accent); background: var(--accent-light); }
+.cp-pos-title { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--sub); }
+.cp-pos-fit { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+.activity-text-wrap { flex: 1; min-width: 0; }
+.activity-text { font-size: 12px; line-height: 1.5; }
+.activity-subtext { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
 .activity-time { font-size: 10px; color: var(--muted); flex-shrink: 0; white-space: nowrap; }
 .activity-empty { font-size: 12px; color: var(--muted); font-style: italic; padding: 8px 0; }
 
@@ -466,7 +476,11 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .tab-wrap { position: relative; display: inline-flex; }
 .tab-badge { position: absolute; top: 2px; right: -4px; width: 7px; height: 7px; border-radius: 50%; background: #ef4444; border: 1.5px solid white; display: none; }
 .tab-badge.visible { display: block; }
-.pipe-card-email { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.pipe-card-header { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.pipe-card-li { display: flex; align-items: center; opacity: 0.55; flex-shrink: 0; transition: opacity 0.15s; }
+.pipe-card-li:hover { opacity: 1; }
+.pipe-card-email { font-size: 12px; color: var(--muted); margin-top: 4px; display: flex; align-items: center; gap: 4px; text-decoration: none; cursor: pointer; }
+.pipe-card-email:hover { color: var(--sub); }
 
 /* RESIZE HANDLE */
 .resize-handle { width: 5px; flex-shrink: 0; cursor: col-resize; background: var(--border); position: relative; transition: background 0.15s; z-index: 10; }
@@ -507,7 +521,6 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
     <div class="tab-wrap"><div class="tab" data-tab="discover">Discover</div><div class="tab-badge" id="discover-badge"></div></div>
   </div>
   <div class="header-right">
-    <div class="streak-badge" id="streak-badge">🔥 <span id="streak-count">0</span>-day streak</div>
     <div class="chat-controls">
       <button class="settings-btn" id="settings-btn" title="Search preferences">Settings</button>
       <button class="settings-btn gmail-btn" id="gmail-btn" title="Connect Gmail to track email threads">Connect Gmail</button>
@@ -557,11 +570,11 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background:#faf5ff">🔍</div>
+          <div class="stat-icon" style="background:#f0fdf4">🎉</div>
           <div>
-            <div class="stat-value" id="stat-companies" style="color:var(--purple)">0</div>
-            <div class="stat-label">Companies tracked</div>
-            <div class="stat-trend trend-neutral" id="stat-companies-sub">start researching</div>
+            <div class="stat-value" id="stat-companies" style="color:var(--green)">0</div>
+            <div class="stat-label">Offers received</div>
+            <div class="stat-trend trend-neutral" id="stat-companies-sub">none yet</div>
           </div>
         </div>
       </div>
@@ -739,9 +752,9 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
       <button class="modal-close" id="modal-close">✕</button>
     </div>
     <div class="modal-tabs">
-      <div class="modal-tab active" data-modal-tab="apply">📋 Log Application</div>
-      <div class="modal-tab" data-modal-tab="update">↗ Update Status</div>
-      <div class="modal-tab" data-modal-tab="research">🔍 Add Company</div>
+      <div class="modal-tab active" data-modal-tab="apply">📋 Log</div>
+      <div class="modal-tab" data-modal-tab="update">↗ Status</div>
+      <div class="modal-tab" data-modal-tab="research">🔍 Research</div>
       <div class="modal-tab" data-modal-tab="find">✦ Find Jobs</div>
     </div>
     <div class="modal-body">
@@ -858,6 +871,11 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
       <div class="onboarding-field">
         <label>Location</label>
         <input id="ob-location" placeholder="e.g. Tel Aviv, Remote, New York" />
+      </div>
+      <div class="onboarding-field" id="ob-gmail-section" style="border-top:1px solid var(--border);padding-top:14px;margin-top:2px;">
+        <label>Gmail Integration <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(optional)</span></label>
+        <div id="ob-gmail-status" style="font-size:13px;color:var(--muted);margin-bottom:6px">Not connected</div>
+        <button id="ob-gmail-connect" style="padding:8px 14px;font-size:12px;font-weight:600;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--sub);cursor:pointer;">Connect Gmail</button>
       </div>
     </div>
     <div class="onboarding-footer">

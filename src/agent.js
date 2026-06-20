@@ -248,6 +248,44 @@ When you learn something important (company ruled out and why, recurring intervi
 Direct. Action-oriented. Flag problems without waiting to be asked. No filler sentences. When you recommend something, give the reason.`;
 }
 
+// One-shot search that doesn't touch the session — used for positions lookup
+export async function searchPositions(company) {
+  const config = loadConfig();
+  const resumePath = resolve(ROOT, config.resumePath || 'workspace/resume/base_resume.md');
+  const resume = existsSync(resumePath) ? readFileSync(resumePath, 'utf-8') : '';
+  const role = config.targetRole || 'Product Manager';
+  const location = config.location || 'Israel';
+
+  const prompt = `Search for currently open ${role} positions at ${company} in ${location} (or remote). Use web search on LinkedIn Jobs, Glassdoor, and the company careers page.
+
+For each position found (up to 4), respond in this EXACT format — one per line:
+POSITION: [Job Title] | [Direct URL] | [One sentence on fit with this candidate's resume]
+
+Here is the candidate's resume for context:
+${resume.slice(0, 1500)}
+
+If no positions found, respond: NONE`;
+
+  const options = {
+    cwd: ROOT,
+    systemPrompt: buildSystemPrompt(config),
+    permissionMode: 'acceptEdits',
+    maxTurns: 5,
+    allowedTools: ['WebSearch', 'WebFetch'],
+  };
+  // No options.resume — fresh context, session not saved
+
+  let text = '';
+  for await (const message of query({ prompt, options })) {
+    if (message.type === 'assistant') {
+      for (const block of message.message.content) {
+        if (block.type === 'text') text += block.text;
+      }
+    }
+  }
+  return text;
+}
+
 export async function* sendMessage(userMessage) {
   const config = loadConfig();
   const sessionId = loadSessionId();

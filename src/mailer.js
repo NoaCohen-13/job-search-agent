@@ -99,7 +99,7 @@ export function buildWeeklyDigestHtml(data, newJobs) {
   </table>` : '<p>✅ No stale applications.</p>'}
 
   ${newJobs?.length ? `
-  <h3>🆕 New jobs found this week</h3>
+  <h3>🔍 Jobs from Discover</h3>
   <table style="width:100%;border-collapse:collapse;font-size:14px">
     <tr style="background:#f1f5f9"><th style="padding:6px 12px;text-align:left">Company</th><th style="padding:6px 12px;text-align:left">Role</th><th style="padding:6px 12px;text-align:left">Location</th><th style="padding:6px 12px;text-align:left">Source</th></tr>
     ${newJobRows}

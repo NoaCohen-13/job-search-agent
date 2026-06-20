@@ -88,7 +88,7 @@ export async function triggerDiscover(sendMessageFn) {
 
 export async function triggerDigest(sendMessageFn) {
   const data = readData();
-  const { newJobs } = await runDailyDiscover(sendMessageFn);
-  const html = buildWeeklyDigestHtml(data, newJobs);
+  const { all: allJobs } = await runDailyDiscover(sendMessageFn);
+  const html = buildWeeklyDigestHtml(data, allJobs);
   await sendDigest('📋 Your weekly job search digest', html);
 }
