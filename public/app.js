@@ -94,10 +94,13 @@ function renderPipeline(data) {
     const items = stage.multi ? apps.filter(a => stage.multi.includes(a.status)) : apps.filter(a => a.status === stage.key);
     const makeCard = (a, hidden) => {
       const dot = a.atsScore ? `<div class="pipe-card-foot">${atsFitDot(a.atsScore.score)}</div>` : '';
+      const emailLine = a.lastEmail
+        ? `<div class="pipe-card-email" title="${esc(a.lastEmail.subject)}">✉ ${relativeTime(a.lastEmail.timestamp)}</div>`
+        : '';
       return `<div class="pipe-card ${stage.cls}${hidden ? ' pipe-card-extra' : ''}">
         <div class="pipe-card-name">${esc(a.company)}</div>
         <div class="pipe-card-role">${esc(a.role)}</div>
-        ${dot}
+        ${emailLine}${dot}
       </div>`;
     };
 
@@ -221,6 +224,11 @@ function initOnboarding() {
   el('ob-save-btn').addEventListener('click', saveProfile);
   el('ob-skip').addEventListener('click', closeOnboarding);
   el('settings-btn').addEventListener('click', openOnboarding);
+
+  el('gmail-btn').addEventListener('click', () => {
+    if (el('gmail-btn').classList.contains('connected')) return;
+    window.open('/api/auth/gmail', '_blank', 'width=500,height=600');
+  });
   el('ob-role').addEventListener('keydown', (e) => { if (e.key === 'Enter') el('ob-location').focus(); });
   el('ob-location').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveProfile(); });
 }
@@ -235,6 +243,10 @@ async function loadDiscover() {
   try {
     const data = await fetch('/api/discover').then(r => r.json());
     renderDiscover(data);
+    // Show badge on Discover tab if there are unseen results and tab isn't active
+    const badge = el('discover-badge');
+    const isActive = document.querySelector('.tab[data-tab="discover"]')?.classList.contains('active');
+    if (badge && data?.results?.length && !isActive) badge.classList.add('visible');
   } catch {}
 }
 
@@ -449,8 +461,22 @@ async function loadDashboard() {
     renderCompanies(data);
     renderSavedTab(data);
     renderApplicationsList(data);
+    updateGmailBtn(data.gmailConnected);
   } catch (err) {
     console.error('Failed to load dashboard:', err);
+  }
+}
+
+function updateGmailBtn(connected) {
+  const btn = el('gmail-btn');
+  if (!btn) return;
+  if (connected) {
+    btn.textContent = 'Gmail ✓';
+    btn.classList.add('connected');
+    btn.title = 'Gmail connected — email threads shown in pipeline';
+  } else {
+    btn.textContent = 'Connect Gmail';
+    btn.classList.remove('connected');
   }
 }
 
@@ -464,6 +490,15 @@ function esc(str) {
 
 function now() {
   return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function relativeTime(isoStr) {
+  if (!isoStr) return '';
+  const diff = (Date.now() - new Date(isoStr)) / 1000;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return new Date(isoStr).toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
 function appendMessage(role, text) {
@@ -1284,6 +1319,7 @@ function switchTab(name) {
   closeCompanyPanel();
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tab-view').forEach(v => v.classList.toggle('active', v.id === `tab-${name}`));
+  if (name === 'discover') el('discover-badge')?.classList.remove('visible');
 }
 
 // ── Event listeners ────────────────────────────────────────────────────────

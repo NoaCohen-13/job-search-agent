@@ -166,9 +166,12 @@ Keep activity array to last 20 entries (remove oldest when adding new). Update w
 6. Ask if resume tailoring or cover letter is wanted
 
 ### Research (/research [company] or "research [company]")
-1. Web search: what they build, PM team size/structure, recent news/funding, Israel presence or remote-hiring policy
+1. Run these web searches in parallel:
+   - General: what they build, PM team size/structure, recent news/funding, Israel presence or remote-hiring policy
+   - Glassdoor: search "site:glassdoor.com [company] reviews" — extract overall rating (out of 5), top pros, top cons, interview difficulty rating if available
 2. Save to workspace/applications/[company-slug]/research.md (if applied) or workspace/companies/[company-slug].md
-3. Update data.json companies array, log activity
+   Include a "## Glassdoor" section with: rating, pros, cons, interview difficulty
+3. Update data.json companies array — add the Glassdoor rating to the tagline (e.g. "B2B SaaS · ⭐ 3.8 on Glassdoor"), log activity
 4. Give 2–3 positioning tips based on the user's background vs. this company's needs
 
 ## CRITICAL: Saved jobs file layout

@@ -6,5 +6,12 @@
   "location": "Your city, hybrid/remote",
   "industries": ["B2B SaaS", "Consumer apps", "AI/ML", "Fintech"],
   "resumePath": "workspace/resume/base_resume.md",
-  "dealBreakers": []
+  "dealBreakers": [],
+
+  "_gmail_sync": "Optional — connect Gmail to see email threads in your pipeline",
+  "gmailClientId": "",
+  "gmailClientSecret": "",
+
+  "_weekly_digest": "Optional — sends a weekly email digest every Monday at 8am",
+  "gmailAppPassword": ""
 }

@@ -6,6 +6,8 @@ import { marked } from 'marked';
 import { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } from 'docx';
 import { sendMessage, resetSession, listSessions, resumeSession, deleteSession, addMessage, initSession } from './agent.js';
 import puppeteer from 'puppeteer-core';
+import { getAuthUrl, handleCallback, isConnected, getEmailSummaries } from './gmail.js';
+import { startScheduler, triggerDiscover, triggerDigest } from './scheduler.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = process.cwd();
@@ -106,13 +108,25 @@ function computeStreak(activity) {
   return streak;
 }
 
-app.get('/api/data', (req, res) => {
+app.get('/api/data', async (req, res) => {
   const data = readData();
   data.stats.streak = computeStreak(data.activity);
   for (const app of data.applications) {
     const scorePath = resolve(ROOT, 'workspace', 'applications', app.id, 'ats_score.json');
     if (existsSync(scorePath)) {
       try { app.atsScore = JSON.parse(readFileSync(scorePath, 'utf-8')); } catch {}
+    }
+  }
+  data.gmailConnected = isConnected();
+
+  // Attach last email info for active applications when Gmail is connected
+  if (data.gmailConnected && data.applications?.length) {
+    const active = data.applications.filter(a => ['applied','screening','interview','offer'].includes(a.status));
+    if (active.length) {
+      const emails = await getEmailSummaries(active.map(a => a.company));
+      for (const app of active) {
+        if (emails[app.company]) app.lastEmail = emails[app.company];
+      }
     }
   }
   res.json(data);
@@ -653,7 +667,52 @@ app.get('/api/resume/export', async (req, res) => {
 
 // ── End resume export ──────────────────────────────────────────────────────
 
+// ── Gmail OAuth ────────────────────────────────────────────────────────────
+const GMAIL_REDIRECT = `http://localhost:${PORT}/api/auth/gmail/callback`;
+
+app.get('/api/auth/gmail', (req, res) => {
+  const url = getAuthUrl(GMAIL_REDIRECT);
+  if (!url) return res.status(400).json({ error: 'Add gmailClientId and gmailClientSecret to config.json first.' });
+  res.redirect(url);
+});
+
+app.get('/api/auth/gmail/callback', async (req, res) => {
+  const { code } = req.query;
+  if (!code) return res.status(400).send('Missing code');
+  try {
+    await handleCallback(code, GMAIL_REDIRECT);
+    res.send('<script>window.close();window.opener&&window.opener.location.reload();</script><p>Gmail connected! You can close this tab.</p>');
+  } catch (err) {
+    res.status(500).send(`Error: ${err.message}`);
+  }
+});
+
+app.get('/api/gmail/status', (req, res) => {
+  res.json({ connected: isConnected() });
+});
+
+app.get('/api/gmail/threads', async (req, res) => {
+  const { companies } = req.query;
+  if (!companies) return res.status(400).json({ error: 'companies required' });
+  const names = companies.split(',').map(s => s.trim()).filter(Boolean);
+  const summaries = await getEmailSummaries(names);
+  res.json(summaries);
+});
+
+// ── Scheduler triggers (manual) ────────────────────────────────────────────
+app.post('/api/scheduler/discover', async (req, res) => {
+  res.json({ ok: true, message: 'Discover running in background' });
+  triggerDiscover(sendMessage).catch(err => console.error('[discover]', err.message));
+});
+
+app.post('/api/scheduler/digest', async (req, res) => {
+  res.json({ ok: true, message: 'Digest sending in background' });
+  triggerDigest(sendMessage).catch(err => console.error('[digest]', err.message));
+});
+
+// ── Start ───────────────────────────────────────────────────────────────────
 ensureDirs();
+startScheduler(sendMessage);
 
 app.listen(PORT, () => {
   console.log(`\nJobAgent running → http://localhost:${PORT}\n`);
