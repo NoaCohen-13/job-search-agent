@@ -580,7 +580,7 @@ function findResumeFile(data, key) {
     return {
       path: existsSync(tailored) ? tailored : resolve(ROOT, 'workspace', 'resume', 'base_resume.md'),
       isTailored: existsSync(tailored),
-      label: `${savedJob.company} — ${savedJob.role}`.replace(/[^\w\s—-]/g, '').replace(/\s+/g, '_'),
+      label: `${savedJob.company}_${savedJob.role}`.replace(/[^\w-]/g, '_').replace(/_+/g, '_'),
     };
   }
   // application?

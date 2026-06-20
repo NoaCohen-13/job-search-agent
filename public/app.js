@@ -1,3 +1,11 @@
+// ── Marked config ──────────────────────────────────────────────────────────
+{
+  const renderer = new marked.Renderer();
+  const _link = renderer.link.bind(renderer);
+  renderer.link = (href, title, text) => _link(href, title, text).replace('<a ', '<a target="_blank" rel="noopener" ');
+  marked.setOptions({ renderer });
+}
+
 // ── State ──────────────────────────────────────────────────────────────────
 let chart = null;
 let isStreaming = false;
@@ -465,7 +473,7 @@ function appendMessage(role, text) {
   const div = document.createElement('div');
   div.className = `msg ${role}`;
   div.innerHTML = `
-    <div class="msg-bubble">${role === 'user' ? esc(text) : esc(text)}</div>
+    <div class="msg-bubble">${role === 'user' ? esc(text) : renderMarkdown(text)}</div>
     <div class="msg-time">${now()}</div>
   `;
   container.appendChild(div);
@@ -504,10 +512,14 @@ function startAgentBubble() {
   return currentBubble;
 }
 
+function renderMarkdown(text) {
+  return marked.parse(text, { breaks: true });
+}
+
 function appendToken(token) {
   if (!currentBubble) startAgentBubble();
   currentBubbleText += token;
-  currentBubble.textContent = currentBubbleText;
+  currentBubble.innerHTML = renderMarkdown(currentBubbleText);
   const container = el('chat-messages');
   container.scrollTop = container.scrollHeight;
 }
@@ -1416,7 +1428,7 @@ async function resumeHistorySession(sessionId) {
       const div = document.createElement('div');
       div.className = `msg ${msg.role}`;
       const timeStr = msg.time ? new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-      div.innerHTML = `<div class="msg-bubble">${esc(msg.text)}</div><div class="msg-time">${timeStr}</div>`;
+      div.innerHTML = `<div class="msg-bubble">${msg.role === 'user' ? esc(msg.text) : renderMarkdown(msg.text)}</div><div class="msg-time">${timeStr}</div>`;
       container.appendChild(div);
     }
     container.scrollTop = container.scrollHeight;

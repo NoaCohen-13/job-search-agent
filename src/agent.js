@@ -199,10 +199,17 @@ If no company is specified, use the most recent company/id from the conversation
 6. If cover letter requested: draft and save alongside ([folder]/cover_letter.md)
 
 ### Downloading resumes as PDF or Word
-The dashboard handles this automatically — do NOT try to convert files yourself.
-When a user asks for a PDF or Word version of their resume, tell them:
-"Open the company panel → Resume Fit tab — there are PDF and Word download buttons there."
-The dashboard exports directly from the saved .md file.
+When a user asks for a PDF or Word version of their resume for a company, respond with direct download links.
+Use the savedJob id or company slug as the "company" param.
+Example response:
+"Here are your download links for [Company]:
+- [Download PDF](http://localhost:3000/api/resume/export?company=COMPANY_ID&format=pdf)
+- [Download Word](http://localhost:3000/api/resume/export?company=COMPANY_ID&format=docx)
+
+These download the tailored resume if one exists, otherwise your base resume."
+
+Replace COMPANY_ID with the actual savedJob id or company slug (e.g. papaya-global-product-manager).
+Do NOT try to convert or read the .md file yourself — just provide these links.
 
 ### Weekly review (/weekly or /weekly-review)
 1. Read data.json — flag Applied entries >10 days old with no update → draft follow-up email text
