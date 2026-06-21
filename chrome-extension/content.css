@@ -1,22 +1,25 @@
-/* JobAgent Save button */
+/* JobAgent Save button — sized to match LinkedIn's Apply/Save buttons */
 #ja-btn {
   display: inline-flex;
   align-items: center;
-  height: 36px;
-  padding: 0 16px;
+  justify-content: center;
+  height: 40px;
+  padding: 0 20px;
   margin-left: 8px;
   border: 1.5px solid #2563eb;
-  border-radius: 18px;
+  border-radius: 40px;
   background: #ffffff;
   color: #2563eb;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
   cursor: pointer;
   white-space: nowrap;
   vertical-align: middle;
+  line-height: 1;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
   outline: none;
+  box-sizing: border-box;
 }
 
 #ja-btn:hover {
