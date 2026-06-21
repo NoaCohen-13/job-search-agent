@@ -295,31 +295,57 @@ function renderActivity(data) {
     return;
   }
 
+  const dismissedActivity = new Set(JSON.parse(localStorage.getItem('dismissed-activity') || '[]'));
+
   container.innerHTML = allItems.map(item => {
+    // Skip Gmail items the user already dismissed
+    if (item._gmail && item.messageId && dismissedActivity.has(item.messageId)) return '';
     const textColor = item._interview ? 'color:var(--green);font-weight:600' : '';
     const sub = item.subtext ? `<div class="activity-subtext">${esc(item.subtext)}</div>` : '';
+    const delBtn = `<button class="activity-del-btn" title="Remove">✕</button>`;
     if (item._gmail) {
       const gmailUrl = item.messageId
         ? `https://mail.google.com/mail/u/0/#all/${item.messageId}`
         : `https://mail.google.com/mail/u/0/#search/${encodeURIComponent('subject:"' + (item.subtext || item.company || '') + '"')}`;
-      return `<a class="activity-item activity-item-link" href="${gmailUrl}" target="_blank" rel="noopener">
+      return `<a class="activity-item activity-item-link" href="${gmailUrl}" target="_blank" rel="noopener" data-gmail-msgid="${esc(item.messageId || '')}">
         <div class="activity-dot activity-dot-gmail">${gmailIcon(13)}</div>
         <div class="activity-text-wrap">
           <div class="activity-text" style="${textColor}">${esc(item.text)}</div>
           ${sub}
         </div>
         <div class="activity-time">${timeAgo(item.timestamp)}</div>
+        ${delBtn}
       </a>`;
     }
-    return `<div class="activity-item">
+    return `<div class="activity-item" data-activity-ts="${esc(item.timestamp)}">
       <div class="activity-dot" style="background:${dotColors[item.type] || 'var(--muted)'}"></div>
       <div class="activity-text-wrap">
         <div class="activity-text" style="${textColor}">${esc(item.text)}</div>
         ${sub}
       </div>
       <div class="activity-time">${timeAgo(item.timestamp)}</div>
+      ${delBtn}
     </div>`;
   }).join('');
+
+  container.querySelectorAll('.activity-del-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const row = btn.closest('.activity-item');
+      const gmailMsgId = row?.dataset.gmailMsgid;
+      const ts = row?.dataset.activityTs;
+      if (gmailMsgId) {
+        const dismissed = JSON.parse(localStorage.getItem('dismissed-activity') || '[]');
+        if (!dismissed.includes(gmailMsgId)) dismissed.push(gmailMsgId);
+        localStorage.setItem('dismissed-activity', JSON.stringify(dismissed));
+        row.remove();
+      } else if (ts) {
+        await fetch(`/api/activity?timestamp=${encodeURIComponent(ts)}`, { method: 'DELETE' });
+        row.remove();
+      }
+    });
+  });
 }
 
 // ── Profile & Onboarding ──────────────────────────────────────────────────

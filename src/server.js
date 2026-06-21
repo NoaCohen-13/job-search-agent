@@ -251,6 +251,17 @@ app.delete('/api/application', (req, res) => {
   res.json({ ok: true });
 });
 
+app.delete('/api/activity', (req, res) => {
+  const { timestamp } = req.query;
+  if (!timestamp) return res.status(400).json({ error: 'timestamp required' });
+  const data = readData();
+  const before = data.activity.length;
+  data.activity = data.activity.filter(a => a.timestamp !== timestamp);
+  if (data.activity.length === before) return res.status(404).json({ error: 'not found' });
+  writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  res.json({ ok: true });
+});
+
 app.delete('/api/company', (req, res) => {
   const { name } = req.query;
   if (!name) return res.status(400).json({ error: 'name required' });
