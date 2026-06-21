@@ -108,23 +108,37 @@
   function injectButton() {
     if (document.getElementById('ja-btn')) return;
 
-    // Anchor next to the Apply button
-    const anchor = document.querySelector([
-      '.jobs-apply-button--top-card',
-      'button[class*="jobs-apply-button"]',
-      'button[aria-label*="Easy Apply"]',
-      'button[aria-label*="Apply"]',
-    ].join(','));
-
-    if (!anchor) return;
-
     const btn = document.createElement('button');
     btn.id = 'ja-btn';
     btn.className = 'ja-btn';
     btn.textContent = '💾 Save to JobAgent';
     btn.addEventListener('click', () => handleSave(btn));
 
-    anchor.parentElement?.insertBefore(btn, anchor.nextSibling);
+    // Strategy 1: next to the Apply button (works on /jobs/view/ and most pages)
+    const applyBtn = document.querySelector([
+      '.jobs-apply-button--top-card',
+      'button[class*="jobs-apply-button"]',
+      '[class*="jobs-apply-button"]',
+      'button[aria-label*="Easy Apply"]',
+      'button[aria-label*="Apply to"]',
+    ].join(','));
+
+    if (applyBtn) {
+      applyBtn.parentElement?.insertBefore(btn, applyBtn.nextSibling);
+      return;
+    }
+
+    // Strategy 2: after the job title h1 — works on /collections/, /recommended/, etc.
+    const h1 = document.querySelector([
+      '.job-details-jobs-unified-top-card__job-title',
+      'h1[class*="job-title"]',
+      'h1[class*="top-card"]',
+    ].join(',')) || document.querySelector('#main h1, .jobs-search__job-details h1');
+
+    if (h1) {
+      btn.style.marginTop = '10px';
+      h1.closest('div')?.after(btn) || h1.after(btn);
+    }
   }
 
   // Retry until the Apply button appears (LinkedIn renders async)
