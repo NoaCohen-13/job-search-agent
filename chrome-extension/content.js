@@ -20,13 +20,36 @@
   }
 
   function getCompany() {
-    const el = document.querySelector([
-      '.job-details-jobs-unified-top-card__company-name a',
-      '.jobs-unified-top-card__company-name a',
-      '[class*="company-name"] a[href*="/company/"]',
-      'a[href*="/company/"]',
-    ].join(','));
-    return el?.textContent?.trim() || null;
+    // Loop all /company/ links — the first match is often the logo (no text), skip it
+    for (const el of document.querySelectorAll('a[href*="/company/"]')) {
+      const text = el.textContent.trim();
+      if (text && text.length > 1 && text.length < 80) return text;
+      // Logo links wrap an <img> — use alt text as fallback
+      const img = el.querySelector('img[alt]');
+      if (img?.alt && img.alt.length > 1) return img.alt.replace(/ logo$/i, '').trim();
+    }
+
+    // Non-link company name elements (some LinkedIn views don't use anchor tags)
+    for (const sel of [
+      '.job-details-jobs-unified-top-card__company-name',
+      '[class*="top-card__company-name"]',
+      '[class*="company-name"]',
+      '[class*="subtitle-primary-grouping"] span',
+      '[class*="jobs-unified-top-card__subtitle"]',
+    ]) {
+      try {
+        const text = document.querySelector(sel)?.textContent?.trim();
+        if (text && text.length > 1 && text.length < 80) {
+          return text.split(/[·•|]/)[0].trim(); // "Company · Location" → "Company"
+        }
+      } catch {}
+    }
+
+    // Last resort: parse "Role at Company | LinkedIn" from document title
+    const m = document.title.match(/\bat\s+(.+?)(?:\s*[|\-]|$)/i);
+    if (m?.[1]) return m[1].trim();
+
+    return null;
   }
 
   function getDescription() {
