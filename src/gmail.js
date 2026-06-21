@@ -138,3 +138,136 @@ export async function getEmailSummaries(companyNames) {
   }));
   return results;
 }
+
+const GENERIC_SENDERS = new Set([
+  'greenhouse', 'lever', 'workday', 'bamboohr', 'jobvite', 'gmail', 'yahoo',
+  'linkedin', 'smartrecruiters', 'workable', 'taleo', 'icims', 'comeet',
+  'drushim', 'glassdoor', 'indeed', 'jobscan', 'ashby', 'rippling', 'info',
+  'notifications', 'mail', 'hiring', 'hr', 'jobs', 'careers', 'apply',
+]);
+
+const BAD_COMPANY_PREFIXES = ['we ', 're ', 'fw ', 'fwd ', 'hi ', 'hello ', 'dear ', 'your ', 'got '];
+const BAD_COMPANY_NAMES = new Set(['we', 're', 'fw', 'fwd', 'hi', 'hello', 'dear', 'we got it',
+  'we received', 'your application', 'thanks', 'thank you', 'application', 'received', 'got it',
+  'thank', 'the', 'a', 'an', 'and']);
+
+function isValidCompanyName(name) {
+  if (!name || name.length < 2) return false;
+  const lower = name.toLowerCase().trim();
+  if (BAD_COMPANY_NAMES.has(lower)) return false;
+  if (BAD_COMPANY_PREFIXES.some(p => lower.startsWith(p))) return false;
+  return true;
+}
+
+function domainToCompany(fromAddr) {
+  // Comeet/ATS subdomain: abra.rnd.comeet-notifications.com → "abra"
+  const atsMatch = fromAddr.match(/@([a-z][a-z0-9-]+)\.(?:rnd\.|mail\.)?(?:comeet|lever|greenhouse|bamboohr|workday|jobvite|smartrecruiters|workable|taleo|icims|ashby|rippling)[-.]/i);
+  if (atsMatch) {
+    const sub = atsMatch[1].toLowerCase();
+    if (!GENERIC_SENDERS.has(sub) && sub.length > 1) {
+      return sub.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+  }
+  // Generic: no-reply@acme.com → "acme"
+  const domMatch = fromAddr.match(/<[^>]*@(?:[a-z-]+\.)?([a-z][a-z0-9-]+)\.[a-z]{2,}>/i);
+  if (domMatch) {
+    const dom = domMatch[1].toLowerCase();
+    if (!GENERIC_SENDERS.has(dom) && dom.length > 2) {
+      return dom.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+  }
+  return null;
+}
+
+function extractCompanyAndRole(subject, from) {
+  // Skip reply/forward emails entirely
+  if (/^(re|fw|fwd)\s*:/i.test(subject)) return { company: null, role: null };
+
+  const sub = subject || '';
+  const fromAddr = from || '';
+  let company = null;
+  let role = null;
+
+  // "applying/applied for {role} at {company}"
+  let m = sub.match(/(?:applying|applied)\s+(?:for\s+)?(?:the\s+)?(?:position\s+(?:of\s+)?)?(.+?)\s+(?:position\s+)?at\s+([A-Za-z][^\s,!.]+(?:\s+[A-Za-z][^\s,!.]+){0,3})(?:\s*[!,.]|\s*$)/i);
+  if (m) {
+    role = m[1].trim().replace(/^(a|an|the)\s+/i, '');
+    company = m[2].trim();
+  }
+
+  // "applying to {company}" or "applied to {company}"
+  if (!company) {
+    m = sub.match(/(?:applying|applied)\s+to\s+([A-Za-z][^\s,!.]+(?:\s+[A-Za-z][^\s,!.]+){0,3})(?:\s*[!,.]|\s*$)/i);
+    if (m) company = m[1].trim();
+  }
+
+  // "for the {role} at {company}"
+  if (!company) {
+    m = sub.match(/\bfor\s+(?:the\s+)?([^@\n,]+?)\s+(?:role\s+)?at\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,3})(?:\s*[!,.]|\s*$)/);
+    if (m) { role = m[1].trim(); company = m[2].trim(); }
+  }
+
+  // "at {Company}" (capital letter company name)
+  if (!company) {
+    m = sub.match(/\bat\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,3})(?:\s*[,!.]|\s+(?:for|position|role|team)\b|\s*$)/);
+    if (m) company = m[1].trim();
+  }
+
+  // Domain extraction — most reliable for ATS-hosted confirmations (Comeet, Greenhouse EU, etc.)
+  if (!company) company = domainToCompany(fromAddr);
+
+  // Validate
+  if (!isValidCompanyName(company)) company = null;
+
+  return { company: company || null, role: role || null };
+}
+
+// Scans inbox for application confirmation emails — returns possible new applications
+export async function scanForNewApplications() {
+  try {
+    const auth = await getAuthedClient();
+    if (!auth) return [];
+    const gmail = google.gmail({ version: 'v1', auth });
+
+    const q = [
+      'subject:"thank you for applying"',
+      'subject:"thanks for applying"',
+      'subject:"application received"',
+      'subject:"we received your application"',
+      'subject:"your application has been received"',
+      'subject:"application submitted"',
+      'subject:"successfully applied"',
+    ].join(' OR ');
+
+    const list = await gmail.users.messages.list({
+      userId: 'me',
+      q: `(${q}) newer_than:60d -subject:"weekly job search digest" -from:me`,
+      maxResults: 20,
+    });
+    const messages = list.data.messages;
+    if (!messages?.length) return [];
+
+    const results = await Promise.all(messages.map(async ({ id }) => {
+      try {
+        const msg = await gmail.users.messages.get({ userId: 'me', id, format: 'metadata', metadataHeaders: ['Subject', 'From', 'Date'] });
+        const headers = msg.data.payload?.headers || [];
+        const get = (name) => headers.find(h => h.name === name)?.value || '';
+        const subject = get('Subject');
+        const from = get('From');
+        const { company, role } = extractCompanyAndRole(subject, from);
+        if (!company) return null;
+        return {
+          messageId: id,
+          subject,
+          from,
+          snippet: msg.data.snippet || '',
+          timestamp: msg.data.internalDate ? new Date(parseInt(msg.data.internalDate)).toISOString() : null,
+          company,
+          role,
+        };
+      } catch { return null; }
+    }));
+
+    return results.filter(Boolean);
+  } catch { return []; }
+}

@@ -6,7 +6,7 @@ import { marked } from 'marked';
 import { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } from 'docx';
 import { sendMessage, searchPositions, resetSession, listSessions, resumeSession, deleteSession, addMessage, initSession } from './agent.js';
 import puppeteer from 'puppeteer-core';
-import { getAuthUrl, handleCallback, isConnected, getEmailSummaries, getInterviewEmailForCompany, detectEmailStatus } from './gmail.js';
+import { getAuthUrl, handleCallback, isConnected, getEmailSummaries, getInterviewEmailForCompany, detectEmailStatus, scanForNewApplications } from './gmail.js';
 import { startScheduler, triggerDiscover, triggerDigest } from './scheduler.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -730,6 +730,64 @@ app.get('/api/auth/gmail/callback', async (req, res) => {
 
 app.get('/api/gmail/status', (req, res) => {
   res.json({ connected: isConnected() });
+});
+
+// Scan inbox for application confirmation emails from companies not yet in tracker
+app.get('/api/gmail/new-applications', async (req, res) => {
+  if (!isConnected()) return res.json({ results: [] });
+  try {
+    const data = readData();
+    // Normalize: strip all non-alphanumeric so "Moon Active" == "moonactive"
+    const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const tracked = new Set([
+      ...data.applications.map(a => norm(a.company)),
+      ...(data.companies || []).map(c => norm(c.name)),
+      ...(data.savedJobs || []).map(j => norm(j.company)),
+    ]);
+    const raw = await scanForNewApplications();
+    const seen = new Set();
+    const results = raw.filter(r => {
+      const key = norm(r.company);
+      if (tracked.has(key) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    res.json({ results });
+  } catch {
+    res.json({ results: [] });
+  }
+});
+
+// Confirm and add a Gmail-detected application to the tracker
+app.post('/api/gmail/add-application', (req, res) => {
+  const { company, role, dateApplied } = req.body;
+  if (!company) return res.status(400).json({ error: 'company required' });
+  const data = readData();
+  const id = slugify(company) + '-' + Date.now();
+  const newApp = {
+    id,
+    company,
+    role: role || '',
+    status: 'applied',
+    dateApplied: dateApplied ? dateApplied.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    nextAction: '',
+    source: 'gmail',
+  };
+  data.applications.push(newApp);
+  data.stats.totalApplied = (data.stats.totalApplied || 0) + 1;
+  data.stats.responseRate = data.stats.totalApplied > 0
+    ? Math.round(data.applications.filter(a => ['screening','interview','offer','rejected'].includes(a.status)).length / data.stats.totalApplied * 100)
+    : 0;
+  data.activity.push({
+    text: `Applied to ${role ? role + ' at ' : ''}${company}`,
+    type: 'application',
+    timestamp: dateApplied || new Date().toISOString(),
+  });
+  if (data.activity.length > 20) data.activity.shift();
+  const dir = resolve(ROOT, 'workspace', 'applications', id);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  res.json({ ok: true, id });
 });
 
 app.get('/api/gmail/threads', async (req, res) => {

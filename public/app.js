@@ -45,6 +45,11 @@ let pollTimer = null;
 let userProfile = null;
 let cpCurrentFetchKey = null;
 
+// Gmail inbox scan — run once per session to find untracked application emails
+let _gmailScanDone = false;
+let _gmailPendingApps = [];
+let _gmailBannerExpanded = false;
+
 const STATUS_COLORS = {
   applied: '#2563eb',
   screening: '#d97706',
@@ -606,6 +611,11 @@ async function loadDashboard() {
     renderSavedTab(data);
     renderApplicationsList(data);
     updateGmailBtn(data.gmailConnected);
+    // Scan Gmail inbox for untracked applications — once per session
+    if (data.gmailConnected && !_gmailScanDone) {
+      _gmailScanDone = true;
+      checkGmailNewApplications();
+    }
   } catch (err) {
     console.error('Failed to load dashboard:', err);
   }
@@ -629,6 +639,82 @@ function updateGmailBtn(connected) {
       if (connectBtn) connectBtn.style.display = '';
     }
   }
+}
+
+// ── Gmail Inbox Scan ───────────────────────────────────────────────────────
+async function checkGmailNewApplications() {
+  const banner = el('gmail-scan-banner');
+  if (!banner) return;
+  try {
+    const dismissed = JSON.parse(localStorage.getItem('dismissed-gmail-apps') || '[]');
+    const resp = await fetch('/api/gmail/new-applications');
+    const { results } = await resp.json();
+    _gmailPendingApps = (results || []).filter(r => !dismissed.includes(r.messageId));
+    if (!_gmailPendingApps.length) { banner.classList.remove('open'); return; }
+    banner.classList.add('open');
+    renderGmailScanBanner();
+  } catch {}
+}
+
+function renderGmailScanBanner() {
+  const banner = el('gmail-scan-banner');
+  if (!banner) return;
+  const count = _gmailPendingApps.length;
+  const itemsHtml = _gmailBannerExpanded
+    ? `<div class="gmail-scan-items">${_gmailPendingApps.map((r, i) => `
+        <div class="gmail-scan-item" id="gscan-item-${i}">
+          <div class="gmail-scan-info">
+            <div class="gmail-scan-company">${esc(r.company)}${r.role ? ' <span style="font-weight:400;color:var(--muted)">— ' + esc(r.role) + '</span>' : ''}</div>
+            <div class="gmail-scan-sub">${esc(r.subject)}</div>
+          </div>
+          <div class="gmail-scan-btns">
+            <button class="gmail-scan-add" data-idx="${i}">+ Add</button>
+            <button class="gmail-scan-dismiss" data-idx="${i}">Dismiss</button>
+          </div>
+        </div>`).join('')}</div>`
+    : '';
+  banner.innerHTML = `
+    <div class="gmail-scan-header" id="gmail-scan-toggle">
+      ${gmailIcon(15)} <span class="gmail-scan-header-text">Found ${count} application${count !== 1 ? 's' : ''} in Gmail not yet tracked</span>
+      <span class="gmail-scan-toggle">${_gmailBannerExpanded ? '▲ hide' : '▼ review'}</span>
+    </div>
+    ${itemsHtml}`;
+
+  el('gmail-scan-toggle')?.addEventListener('click', () => {
+    _gmailBannerExpanded = !_gmailBannerExpanded;
+    renderGmailScanBanner();
+  });
+
+  banner.querySelectorAll('.gmail-scan-add').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const i = parseInt(btn.dataset.idx);
+      const r = _gmailPendingApps[i];
+      btn.textContent = '✓ Added';
+      btn.disabled = true;
+      await fetch('/api/gmail/add-application', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ company: r.company, role: r.role || '', dateApplied: r.timestamp }),
+      });
+      _gmailPendingApps = _gmailPendingApps.filter((_, j) => j !== i);
+      if (!_gmailPendingApps.length) { banner.classList.remove('open'); }
+      else { renderGmailScanBanner(); }
+      await loadDashboard();
+    });
+  });
+
+  banner.querySelectorAll('.gmail-scan-dismiss').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = parseInt(btn.dataset.idx);
+      const r = _gmailPendingApps[i];
+      const dismissed = JSON.parse(localStorage.getItem('dismissed-gmail-apps') || '[]');
+      if (!dismissed.includes(r.messageId)) dismissed.push(r.messageId);
+      localStorage.setItem('dismissed-gmail-apps', JSON.stringify(dismissed));
+      _gmailPendingApps = _gmailPendingApps.filter((_, j) => j !== i);
+      if (!_gmailPendingApps.length) { banner.classList.remove('open'); }
+      else { renderGmailScanBanner(); }
+    });
+  });
 }
 
 // ── Chat ───────────────────────────────────────────────────────────────────
