@@ -1,0 +1,66 @@
+/* JobAgent Save button */
+#ja-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 16px;
+  margin-left: 8px;
+  border: 1.5px solid #2563eb;
+  border-radius: 18px;
+  background: #ffffff;
+  color: #2563eb;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  vertical-align: middle;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  outline: none;
+}
+
+#ja-btn:hover {
+  background: #eff6ff;
+}
+
+#ja-btn.ja-saved {
+  border-color: #16a34a;
+  color: #16a34a;
+  cursor: default;
+}
+
+#ja-btn:disabled,
+#ja-btn[data-saving] {
+  opacity: 0.65;
+  cursor: default;
+}
+
+/* Toast notification */
+.ja-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 11px 18px;
+  background: #1e293b;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+  z-index: 2147483647;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+  max-width: 320px;
+}
+
+.ja-toast.ja-show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.ja-toast-err {
+  background: #dc2626;
+}
