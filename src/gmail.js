@@ -215,6 +215,29 @@ async function classifyEmailWithAI(subject, body, from = '') {
   return MAP[result.category] || null;
 }
 
+// Public — used by the /api/classify-email test endpoint.
+// Returns the full structured result from the sub-agent.
+// Extract company from "... at CompanyName" in subject line
+function companyFromSubject(subject) {
+  const m = subject.match(/\bat\s+(.+?)(?:\s*[|\-–]|$)/i);
+  return m?.[1]?.trim() || null;
+}
+
+export async function classifyEmail({ subject = '', from = '', body = '' }) {
+  const keyword = detectEmailStatus({ subject, snippet: body.slice(0, 300) });
+  if (keyword) {
+    const MAP = { rejected: 'rejection', interview: 'interview_invite', applied: 'confirmation' };
+    return {
+      category: MAP[keyword] || 'irrelevant',
+      company: companyFromSubject(subject),
+      confidence: 'high',
+      source: 'keyword',
+    };
+  }
+  const result = await classifyEmailWithAgent(subject, from, body);
+  return result ? { ...result, source: 'sub-agent' } : null;
+}
+
 // Extract plain text from a Gmail message payload (handles nested multipart)
 function extractEmailText(payload) {
   if (!payload) return '';

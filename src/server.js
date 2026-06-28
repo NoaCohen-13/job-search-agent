@@ -6,7 +6,7 @@ import { marked } from 'marked';
 import { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } from 'docx';
 import { sendMessage, searchPositions, resetSession, listSessions, resumeSession, deleteSession, addMessage, initSession } from './agent.js';
 import puppeteer from 'puppeteer-core';
-import { getAuthUrl, handleCallback, isConnected, checkGmailHealth, getEmailSummaries, getInterviewEmailForCompany, detectEmailStatus, detectEmailStatusWithAI, scanForNewApplications, scanForRejections } from './gmail.js';
+import { getAuthUrl, handleCallback, isConnected, checkGmailHealth, getEmailSummaries, getInterviewEmailForCompany, detectEmailStatus, detectEmailStatusWithAI, scanForNewApplications, scanForRejections, classifyEmail } from './gmail.js';
 import { startScheduler, triggerDiscover, triggerDigest } from './scheduler.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -890,6 +890,14 @@ app.get('/api/gmail/scan-rejections/debug', async (req, res) => {
   const companyNames = activeApps.map(a => a.company);
   const rejections = await scanForRejections(companyNames);
   res.json({ searched: companyNames, found: rejections });
+});
+
+// Test endpoint — paste any email and see how the classifier responds
+app.post('/api/classify-email', async (req, res) => {
+  const { subject, from, body } = req.body;
+  if (!subject && !body) return res.status(400).json({ error: 'provide at least subject or body' });
+  const result = await classifyEmail({ subject, from, body });
+  res.json(result || { error: 'classifier returned null' });
 });
 
 app.get('/api/gmail/threads', async (req, res) => {
