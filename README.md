@@ -11,6 +11,8 @@ A personal AI job search agent with a web dashboard, built on the [Claude Agent 
 ## What it does
 
 - **Job discovery** — searches LinkedIn, Comeet, and Drushim for open roles matching your target; save any result with one click
+- **Chrome extension** — adds a "Save to JobAgent" button on LinkedIn job pages; one click sends the JD straight into your pipeline
+- **Gmail sync** — connects to your inbox and automatically detects rejections, interview invites, and application confirmations; updates your pipeline status without you lifting a finger
 - **ATS resume fit score** — scores your resume against a saved JD (0–100) and shows missing keywords before you apply
 - **Resume tailoring** — rewrites your summary and bullets for each role, without touching your master copy
 - **Application pipeline** — track every role from Applied → Screening → Interview → Offer with a Kanban view
@@ -50,6 +52,15 @@ npm start
 ```
 
 On first run, the app shows a short onboarding to confirm your target role and location. These sync back to `config.json` automatically.
+
+**Optional: Chrome extension**
+1. Open `chrome://extensions` in Chrome, enable Developer mode
+2. Click "Load unpacked" → select the `chrome-extension/` folder
+3. A "💾 Save to JobAgent" button will appear on LinkedIn job pages
+
+**Optional: Gmail integration**
+- Click "Connect Gmail" in the dashboard header and follow the OAuth flow
+- Once connected, the agent scans your inbox on every load to auto-detect rejections and interview invites
 
 ---
 
