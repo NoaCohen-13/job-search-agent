@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
 import { resolve } from 'path';
+import { query } from '@anthropic-ai/claude-agent-sdk';
 
 const ROOT = process.cwd();
 const TOKEN_FILE = resolve(ROOT, 'workspace/memory/gmail_token.json');
@@ -139,44 +140,48 @@ export function detectEmailStatus(email) {
   return null;
 }
 
-// Classify an email using Claude. body should be the full email text when available.
-async function classifyEmailWithAI(subject, body) {
+// Classify an email using the email-classifier sub-agent.
+// Returns { category, company, confidence } or null on failure.
+async function classifyEmailWithAgent(subject, from, body) {
   try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return null;
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
+    const prompt = `Subject: ${subject}
+From: ${from || ''}
+Body: ${(body || '').slice(0, 2000)}`;
+
+    let result = null;
+    for await (const msg of query({
+      prompt,
+      options: {
+        cwd: ROOT,
+        subagentType: 'email-classifier',
+        maxTurns: 1,
+        allowedTools: [],
       },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 10,
-        messages: [{
-          role: 'user',
-          content: `Classify this job application email. Reply with one lowercase word only.
-
-Subject: ${subject}
-Email content: ${(body || '').slice(0, 1500)}
-
-Reply with one of:
-- rejected  (any rejection, polite or blunt, any language)
-- interview (scheduling, availability, invitation to interview)
-- applied   (application confirmed/received)
-- unclear
-
-One word only.`,
-        }],
-      }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const word = (data.content?.[0]?.text || '').trim().toLowerCase().split(/\s/)[0];
-    if (['rejected', 'interview', 'applied'].includes(word)) return word;
-    return null;
+    })) {
+      if (msg.type === 'assistant') {
+        for (const block of msg.message.content) {
+          if (block.type === 'text') {
+            const text = block.text.trim();
+            // Extract JSON from the response (agent may wrap it in markdown)
+            const match = text.match(/\{[\s\S]*\}/);
+            if (match) {
+              try { result = JSON.parse(match[0]); } catch {}
+            }
+          }
+        }
+      }
+    }
+    return result;
   } catch { return null; }
+}
+
+// Thin wrapper — maps sub-agent categories to the legacy status strings
+// used throughout the codebase ('rejected' | 'interview' | 'applied' | null).
+async function classifyEmailWithAI(subject, body, from = '') {
+  const result = await classifyEmailWithAgent(subject, from, body);
+  if (!result) return null;
+  const MAP = { rejection: 'rejected', interview_invite: 'interview', confirmation: 'applied' };
+  return MAP[result.category] || null;
 }
 
 // Extract plain text from a Gmail message payload (handles nested multipart)
@@ -388,7 +393,7 @@ export async function scanForRejections(companyNames) {
 
           // Fast keyword check first (free); fall back to Claude for anything ambiguous
           const quick = detectEmailStatus({ subject, snippet: body.slice(0, 300) || snippet });
-          const status = quick || await classifyEmailWithAI(subject, body || snippet);
+          const status = quick || await classifyEmailWithAI(subject, body || snippet, from);
 
           if (status === 'rejected') {
             return { company, subject, from, snippet, date, messageId: id };
