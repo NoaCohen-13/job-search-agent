@@ -5,6 +5,10 @@ data.json
 .DS_Store
 mockups/
 
+# Root-level test/debug scripts (use scripts/ folder instead)
+/test-*.mjs
+/test-*.js
+
 # Personal job search data (lives in workspace/ at runtime, but guard root-level copies too)
 applications/
 companies/
