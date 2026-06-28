@@ -18,15 +18,18 @@ Body: <email body text, may be truncated>
 
 ## Output format
 
-Reply with ONLY a valid JSON object — no explanation, no markdown, no extra text:
+Reply with ONLY this exact JSON structure — no extra fields, no markdown fences, no explanation:
 
-```json
-{
-  "category": "rejection" | "interview_invite" | "confirmation" | "irrelevant",
-  "company": "<company name or null>",
-  "confidence": "high" | "medium" | "low"
-}
 ```
+{"category":"...","company":"...","confidence":"..."}
+```
+
+The three fields are:
+- `category`: exactly one of `rejection`, `interview_invite`, `confirmation`, `irrelevant`
+- `company`: the hiring company name as a string, or `null` if unknown
+- `confidence`: exactly one of `high`, `medium`, `low`
+
+Do not add any other fields. Do not wrap in markdown. Output only the JSON object.
 
 ## Classification rules
 

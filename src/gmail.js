@@ -144,34 +144,65 @@ export function detectEmailStatus(email) {
 // Returns { category, company, confidence } or null on failure.
 async function classifyEmailWithAgent(subject, from, body) {
   try {
-    const prompt = `Subject: ${subject}
+    const prompt = `Classify this email from a job application process. Return only the JSON object.
+
+Subject: ${subject}
 From: ${from || ''}
 Body: ${(body || '').slice(0, 2000)}`;
+
+    const schema = {
+      type: 'object',
+      properties: {
+        category: { type: 'string', enum: ['rejection', 'interview_invite', 'confirmation', 'irrelevant'] },
+        company: { type: ['string', 'null'] },
+        confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+      },
+      required: ['category', 'company', 'confidence'],
+    };
 
     let result = null;
     for await (const msg of query({
       prompt,
       options: {
         cwd: ROOT,
-        subagentType: 'email-classifier',
-        maxTurns: 1,
+        agent: 'email-classifier',
+        maxTurns: 3,
         allowedTools: [],
+        jsonSchema: schema,
       },
     })) {
       if (msg.type === 'assistant') {
         for (const block of msg.message.content) {
           if (block.type === 'text') {
-            const text = block.text.trim();
-            // Extract JSON from the response (agent may wrap it in markdown)
-            const match = text.match(/\{[\s\S]*\}/);
-            if (match) {
-              try { result = JSON.parse(match[0]); } catch {}
-            }
+            const match = block.text.match(/\{[\s\S]*\}/);
+            if (match) try { result = JSON.parse(match[0]); } catch {}
           }
         }
       }
+      if (msg.type === 'result' && msg.result) {
+        const match = msg.result.match(/\{[\s\S]*\}/);
+        if (match) try { result = JSON.parse(match[0]); } catch {}
+      }
     }
-    return result;
+    if (!result) return null;
+
+    // Normalise — the agent may use different field names; map back to the schema
+    const raw = result;
+    const typeStr = (raw.category || raw.type || raw.emailType || '').toLowerCase();
+    const statusStr = (raw.status || raw.status_update || '').toLowerCase();
+    let category = raw.category;
+    if (!['rejection','interview_invite','confirmation','irrelevant'].includes(category)) {
+      if (typeStr.includes('reject') || statusStr === 'rejected') category = 'rejection';
+      else if (typeStr.includes('interview') || statusStr.includes('interview')) category = 'interview_invite';
+      else if (typeStr.includes('application_received') || typeStr.includes('confirmation') || statusStr === 'applied') category = 'confirmation';
+      else category = 'irrelevant';
+    }
+
+    return {
+      category,
+      company: raw.company || null,
+      confidence: raw.confidence || 'medium',
+    };
   } catch { return null; }
 }
 
