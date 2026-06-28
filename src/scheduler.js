@@ -87,8 +87,14 @@ export async function triggerDiscover(sendMessageFn) {
 }
 
 export async function triggerDigest(sendMessageFn) {
+  const config = readConfig();
+  if (!config.email || (!config.gmailAppPassword && !config.smtpHost)) {
+    console.log('[digest] No email credentials — skipping. Add gmailAppPassword to config.json.');
+    return;
+  }
   const data = readData();
   const { all: allJobs } = await runDailyDiscover(sendMessageFn);
   const html = buildWeeklyDigestHtml(data, allJobs);
   await sendDigest('📋 Your weekly job search digest', html);
+  console.log('[digest] Weekly digest sent to', config.email);
 }
