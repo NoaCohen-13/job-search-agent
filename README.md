@@ -122,6 +122,35 @@ workspace/
 
 ---
 
+## Sub-agents
+
+The project uses a dedicated Claude sub-agent for email classification, defined in `.claude/agents/`:
+
+| Agent | What it does |
+|-------|-------------|
+| `email-classifier` | Classifies a job-search email as `rejection`, `interview_invite`, `confirmation`, or `irrelevant`; extracts the company name and a confidence level. Used by Gmail sync on every new email. |
+
+The classifier runs a fast keyword check first (free, instant). If the email is ambiguous, it falls back to the sub-agent which reads the full email body and understands context, tone, and language — including polite rejections that never say "rejected" outright.
+
+You can test it directly:
+
+```bash
+curl -X POST http://localhost:3000/api/classify-email \
+  -H "Content-Type: application/json" \
+  -d '{
+    "subject": "Your application to Product Manager at Wix",
+    "from": "jobs-noreply@linkedin.com",
+    "body": "Unfortunately, we will not be moving forward with your application."
+  }'
+```
+
+Returns:
+```json
+{ "category": "rejection", "company": "Wix", "confidence": "high", "source": "keyword" }
+```
+
+---
+
 ## Stack
 
 - [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk) — agentic runtime (wraps Claude Code)
