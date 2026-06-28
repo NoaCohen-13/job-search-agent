@@ -1,6 +1,7 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, unlinkSync } from 'fs';
 import { resolve, join } from 'path';
+import { isConnected } from './gmail.js';
 
 const ROOT = process.cwd();
 const SESSION_FILE = resolve(ROOT, 'workspace/memory/session.json');
@@ -101,7 +102,7 @@ export function deleteSession(sessionId) {
   try { unlinkSync(resolve(SESSIONS_DIR, `${sessionId}.json`)); return true; } catch { return false; }
 }
 
-function buildSystemPrompt(config) {
+function buildSystemPrompt(config, gmailConnected = false) {
   return `You are ${config.name || 'the user'}'s personal job search agent. You actively drive their search for a ${config.targetRole || 'Product Manager'} role.
 
 ## Profile
@@ -244,6 +245,22 @@ You have access to Google Drive MCP tools. Use them when the user shares a Googl
 ## Memory
 When you learn something important (company ruled out and why, recurring interview feedback, skill progress, effective job sources), append a note to workspace/memory/notes.md.
 
+## Gmail
+${gmailConnected ? `Gmail IS connected. Use it proactively.
+
+**When the user asks about emails, rejection, interview invites, or application status:**
+1. Run via Bash: \`curl -s "http://localhost:3000/api/gmail/threads?companies=COMPANY_NAME"\`
+   - Replace spaces in company name with %20 (e.g., "Moon Active" → "Moon%20Active")
+   - Response: \`{ "Company Name": { subject, snippet, from, date, messageId } }\`
+2. Detect status from subject+snippet (case-insensitive):
+   - **Rejected** if any: "regret", "not moving forward", "not selected", "not a fit", "unfortunately", "decided to move forward with other", "position has been filled", "will not be moving", "not proceed"
+   - **Interview** if any: "interview", "schedule a call", "availability", "next steps", "next round", "phone screen", "video call", "zoom"
+3. If status changed → update data.json immediately (read → update app.status → write)
+4. Log activity entry: e.g. \`{ text: "Rejected by Port — email detected", type: "follow-up", timestamp: "..." }\`
+5. Tell the user what you found and what you updated.
+
+**Do this automatically** — don't wait to be asked. If the user mentions a company and Gmail is connected, check their inbox.` : `Gmail is NOT connected. Tell the user to connect it in Settings so you can check emails automatically.`}
+
 ## Tone
 Direct. Action-oriented. Flag problems without waiting to be asked. No filler sentences. When you recommend something, give the reason.`;
 }
@@ -289,7 +306,7 @@ If no positions found, respond: NONE`;
 export async function* sendMessage(userMessage) {
   const config = loadConfig();
   const sessionId = loadSessionId();
-  const systemPrompt = buildSystemPrompt(config);
+  const systemPrompt = buildSystemPrompt(config, isConnected());
 
   const options = {
     cwd: ROOT,
@@ -312,27 +329,41 @@ export async function* sendMessage(userMessage) {
     options.resume = sessionId;
   }
 
-  const q = query({ prompt: userMessage, options });
-
-  for await (const message of q) {
-    if (message.session_id) {
-      saveSessionId(message.session_id);
-    }
-
-    if (message.type === 'assistant') {
-      for (const block of message.message.content) {
-        if (block.type === 'text' && block.text) {
-          yield { type: 'token', content: block.text };
-        }
-      }
-    } else if (message.type === 'result') {
+  async function* run(opts) {
+    const q = query({ prompt: userMessage, options: opts });
+    for await (const message of q) {
       if (message.session_id) saveSessionId(message.session_id);
-      yield { type: 'done' };
-      return;
+      if (message.type === 'assistant') {
+        for (const block of message.message.content) {
+          if (block.type === 'text' && block.text) {
+            yield { type: 'token', content: block.text };
+          }
+        }
+      } else if (message.type === 'result') {
+        if (message.session_id) saveSessionId(message.session_id);
+        yield { type: 'done' };
+        return;
+      }
     }
+    yield { type: 'done' };
   }
 
-  yield { type: 'done' };
+  try {
+    yield* run(options);
+  } catch (err) {
+    const msg = err.message || '';
+    // Session grew past 200K tokens — clear it and start fresh
+    if (msg.includes('1M context') || msg.includes('context length') || msg.includes('too long')) {
+      archiveCurrentSession();
+      const freshOptions = { ...options };
+      delete freshOptions.resume;
+      yield { type: 'token', content: '_Session was too long — starting a fresh conversation._\n\n' };
+      yield* run(freshOptions);
+    } else {
+      yield { type: 'error', content: msg };
+      yield { type: 'done' };
+    }
+  }
 }
 
 export function resetSession() {

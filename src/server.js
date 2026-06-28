@@ -6,7 +6,7 @@ import { marked } from 'marked';
 import { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } from 'docx';
 import { sendMessage, searchPositions, resetSession, listSessions, resumeSession, deleteSession, addMessage, initSession } from './agent.js';
 import puppeteer from 'puppeteer-core';
-import { getAuthUrl, handleCallback, isConnected, getEmailSummaries, getInterviewEmailForCompany, detectEmailStatus, scanForNewApplications } from './gmail.js';
+import { getAuthUrl, handleCallback, isConnected, checkGmailHealth, getEmailSummaries, getInterviewEmailForCompany, detectEmailStatus, detectEmailStatusWithAI, scanForNewApplications, scanForRejections } from './gmail.js';
 import { startScheduler, triggerDiscover, triggerDigest } from './scheduler.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -85,6 +85,13 @@ function readData() {
 }
 
 const app = express();
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 app.use(express.json());
 app.use(express.static(resolve(__dirname, '../public')));
 
@@ -111,36 +118,51 @@ function computeStreak(activity) {
 app.get('/api/data', async (req, res) => {
   const data = readData();
   data.stats.streak = computeStreak(data.activity);
+  // Always compute live — never let stale stored values mislead the UI
+  data.stats.activeInterviews = data.applications.filter(a => a.status === 'interview').length;
   for (const app of data.applications) {
     const scorePath = resolve(ROOT, 'workspace', 'applications', app.id, 'ats_score.json');
     if (existsSync(scorePath)) {
       try { app.atsScore = JSON.parse(readFileSync(scorePath, 'utf-8')); } catch {}
     }
   }
-  data.gmailConnected = isConnected();
+  // Validate the token on each request so the UI reflects the real state
+  if (isConnected()) {
+    const healthy = await checkGmailHealth();
+    data.gmailConnected = healthy;
+  } else {
+    data.gmailConnected = false;
+  }
 
   // Attach last email info and auto-detect status changes when Gmail is connected
   if (data.gmailConnected && data.applications?.length) {
+    // Fetch last email for active apps + rejected apps (so rejection emails show in activity)
     const active = data.applications.filter(a => ['applied','screening','interview','offer'].includes(a.status));
-    if (active.length) {
-      const emails = await getEmailSummaries(active.map(a => a.company));
+    const rejected = data.applications.filter(a => a.status === 'rejected');
+    const forEmail = [...active, ...rejected];
+    if (forEmail.length) {
+      const emails = await getEmailSummaries(forEmail.map(a => a.company));
       let dataChanged = false;
-      // Also fetch interview-specific emails for all active apps in parallel
+      // Interview-specific search only for active apps
       const interviewEmails = await Promise.all(
         active.map(a => getInterviewEmailForCompany(a.company))
       );
-      for (let i = 0; i < active.length; i++) {
-        const app = active[i];
+      for (let i = 0; i < forEmail.length; i++) {
+        const app = forEmail[i];
         const email = emails[app.company];
         if (email) {
           app.lastEmail = email;
-          app.lastEmail.detectedStatus = detectEmailStatus(email);
+          app.lastEmail.detectedStatus = await detectEmailStatusWithAI(email);
         }
-        const interviewEmail = interviewEmails[i];
-        if (interviewEmail) app.interviewEmail = interviewEmail;
+        // Validate the interview email is actually a job interview — avoids newsletters
+        const interviewEmail = active.includes(app) ? interviewEmails[active.indexOf(app)] : null;
+        if (interviewEmail) {
+          const iStatus = await detectEmailStatusWithAI(interviewEmail);
+          if (iStatus === 'interview') app.interviewEmail = interviewEmail;
+        }
 
-        // Auto-update status from most recent email
-        if (app.lastEmail?.detectedStatus && app.lastEmail.detectedStatus !== app.status) {
+        // Auto-update status only for active apps (not already-rejected ones)
+        if (active.includes(app) && app.lastEmail?.detectedStatus && app.lastEmail.detectedStatus !== app.status) {
           if (app.lastEmail.detectedStatus === 'rejected' ||
               (app.lastEmail.detectedStatus === 'interview' && ['applied','screening'].includes(app.status))) {
             app.status = app.lastEmail.detectedStatus;
@@ -757,12 +779,18 @@ app.get('/api/gmail/new-applications', async (req, res) => {
     ]);
     const raw = await scanForNewApplications();
     const seen = new Set();
-    const results = raw.filter(r => {
+    const untracked = raw.filter(r => {
       const key = norm(r.company);
       if (tracked.has(key) || seen.has(key)) return false;
       seen.add(key);
       return true;
     });
+    // For each untracked application, check if there's already a more recent status email
+    const results = await Promise.all(untracked.map(async (r) => {
+      const latest = await getLastEmailForCompany(r.company);
+      const detectedStatus = await detectEmailStatusWithAI(latest);
+      return { ...r, detectedStatus: detectedStatus || null, latestEmail: latest || null };
+    }));
     res.json({ results });
   } catch {
     res.json({ results: [] });
@@ -771,15 +799,16 @@ app.get('/api/gmail/new-applications', async (req, res) => {
 
 // Confirm and add a Gmail-detected application to the tracker
 app.post('/api/gmail/add-application', (req, res) => {
-  const { company, role, dateApplied } = req.body;
+  const { company, role, dateApplied, status } = req.body;
   if (!company) return res.status(400).json({ error: 'company required' });
   const data = readData();
   const id = slugify(company) + '-' + Date.now();
+  const resolvedStatus = ['rejected', 'interview', 'screening', 'offer', 'applied'].includes(status) ? status : 'applied';
   const newApp = {
     id,
     company,
     role: role || '',
-    status: 'applied',
+    status: resolvedStatus,
     dateApplied: dateApplied ? dateApplied.slice(0, 10) : new Date().toISOString().slice(0, 10),
     nextAction: '',
     source: 'gmail',
@@ -799,6 +828,68 @@ app.post('/api/gmail/add-application', (req, res) => {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
   res.json({ ok: true, id });
+});
+
+// Scan Gmail for rejection emails and auto-update application statuses.
+// Covers applied, screening, AND interview — a rejection supersedes any stage.
+app.get('/api/gmail/scan-rejections', async (req, res) => {
+  if (!isConnected()) return res.json({ updated: [] });
+  const data = readData();
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  const activeApps = data.applications.filter(a =>
+    ['applied', 'screening', 'interview'].includes(a.status)
+  );
+  if (!activeApps.length) return res.json({ updated: [] });
+
+  const companyNames = activeApps.map(a => a.company);
+  const rejections = await scanForRejections(companyNames);
+
+  const updated = [];
+  for (const r of rejections) {
+    // Fuzzy match: "Moon Active" === "moonactive" etc.
+    const app = activeApps.find(a => norm(a.company) === norm(r.company));
+    if (!app || app.status === 'rejected') continue;
+
+    const prevStatus = app.status;
+    app.status = 'rejected';
+    app.nextAction = '';
+    data.activity.unshift({
+      text: `Rejected by ${r.company}`,
+      type: 'rejection',
+      subtext: r.subject,
+      messageId: r.messageId,
+      company: r.company,
+      // Use the email's sent date, not the scan time
+      timestamp: r.date ? new Date(r.date).toISOString() : new Date().toISOString(),
+    });
+    updated.push({ company: r.company, subject: r.subject, prevStatus });
+  }
+
+  if (updated.length) {
+    data.activity = data.activity.slice(0, 20);
+    // Recompute stats — never touch totalApplied (it's a historical counter)
+    data.stats.activeInterviews = data.applications.filter(a => a.status === 'interview').length;
+    const total = data.stats.totalApplied || data.applications.length;
+    data.stats.responseRate = total > 0
+      ? Math.round(data.applications.filter(a => ['screening','interview','offer','rejected'].includes(a.status)).length / total * 100)
+      : 0;
+    writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  }
+
+  res.json({ updated });
+});
+
+// Debug: show raw Gmail rejection scan results without writing anything
+app.get('/api/gmail/scan-rejections/debug', async (req, res) => {
+  if (!isConnected()) return res.json({ error: 'Gmail not connected' });
+  const data = readData();
+  const activeApps = data.applications.filter(a =>
+    ['applied', 'screening', 'interview'].includes(a.status)
+  );
+  const companyNames = activeApps.map(a => a.company);
+  const rejections = await scanForRejections(companyNames);
+  res.json({ searched: companyNames, found: rejections });
 });
 
 app.get('/api/gmail/threads', async (req, res) => {

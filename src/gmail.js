@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
 import { resolve } from 'path';
 
 const ROOT = process.cwd();
@@ -30,6 +30,7 @@ export async function handleCallback(code, redirectUri) {
   const client = getOAuth2Client(redirectUri);
   const { tokens } = await client.getToken(code);
   writeFileSync(TOKEN_FILE, JSON.stringify(tokens, null, 2));
+  _tokenValid = true; // reset after fresh OAuth grant
   return tokens;
 }
 
@@ -38,8 +39,15 @@ export function loadToken() {
   try { return JSON.parse(readFileSync(TOKEN_FILE, 'utf-8')); } catch { return null; }
 }
 
+let _tokenValid = true; // flipped to false on invalid_grant
+
 export function isConnected() {
-  return !!loadToken() && !!getCredentials();
+  return !!loadToken() && !!getCredentials() && _tokenValid;
+}
+
+export function markTokenInvalid() {
+  _tokenValid = false;
+  try { unlinkSync(TOKEN_FILE); } catch {}
 }
 
 async function getAuthedClient() {
@@ -48,12 +56,23 @@ async function getAuthedClient() {
   const client = getOAuth2Client('http://localhost:3000/api/auth/gmail/callback');
   if (!client) return null;
   client.setCredentials(token);
-  // Refresh token if needed
   client.on('tokens', (t) => {
     const existing = loadToken() || {};
     writeFileSync(TOKEN_FILE, JSON.stringify({ ...existing, ...t }, null, 2));
   });
   return client;
+}
+
+// Wraps a Gmail API call and catches invalid_grant to mark the token dead
+async function gmailCall(fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    if (err?.message?.includes('invalid_grant') || err?.response?.data?.error === 'invalid_grant') {
+      markTokenInvalid();
+    }
+    throw err;
+  }
 }
 
 // Returns { subject, snippet, date, from } for the most recent email matching the company name
@@ -63,7 +82,9 @@ export async function getLastEmailForCompany(companyName) {
     if (!auth) return null;
     const gmail = google.gmail({ version: 'v1', auth });
 
-    const q = `"${companyName}" in:anywhere -category:promotions -category:social -subject:"weekly job search digest"`;
+    // Exclude LinkedIn JOB ALERTS only (jobalerts-noreply) — they list many companies
+    // and cause false matches. Allow jobs-noreply (application status updates like rejections).
+    const q = `"${companyName}" in:anywhere -from:jobalerts-noreply@linkedin.com -category:promotions -category:social -subject:"weekly job search digest"`;
     const list = await gmail.users.messages.list({ userId: 'me', q, maxResults: 1 });
     const messages = list.data.messages;
     if (!messages?.length) return null;
@@ -83,12 +104,26 @@ export async function getLastEmailForCompany(companyName) {
   } catch { return null; }
 }
 
+export const APPLIED_SIGNALS = [
+  'thank you for applying', 'thanks for applying', 'we received your application',
+  'your application has been received', 'application received', 'application submitted',
+  'successfully applied', 'we got it', 'your resume has been received',
+  'thank you for your interest in joining', 'thank you for submitting',
+];
+
 const REJECTION_SIGNALS = [
   'regret to inform', 'regret that', 'not moving forward', 'will not be moving',
   'not selected', 'not been selected', 'not successful', 'have decided not',
   'not a fit', 'not the right fit', 'not a good fit', 'decided to move forward with other',
   'filled the position', 'position has been filled', 'no longer considering',
   'unfortunately', 'at this time we', 'we will not', 'not proceed',
+  // Phrases found in real rejection emails
+  "won't be continuing", 'not continuing', 'not continuing the recruitment',
+  'decided to move forward with other candidates', 'move forward with other candidates',
+  'after thoughtful consideration', 'after careful consideration',
+  'after reviewing your', 'will not be moving forward',
+  'not be moving forward', 'decided not to move',
+  'not a match', 'not the right match',
 ];
 const INTERVIEW_SIGNALS = [
   'interview', 'schedule a call', 'schedule time', 'availability', 'meet with',
@@ -100,7 +135,80 @@ export function detectEmailStatus(email) {
   const text = `${email.subject} ${email.snippet}`.toLowerCase();
   if (REJECTION_SIGNALS.some(s => text.includes(s))) return 'rejected';
   if (INTERVIEW_SIGNALS.some(s => text.includes(s))) return 'interview';
+  if (APPLIED_SIGNALS.some(s => text.includes(s))) return 'applied';
   return null;
+}
+
+// Classify an email using Claude. body should be the full email text when available.
+async function classifyEmailWithAI(subject, body) {
+  try {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return null;
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        max_tokens: 10,
+        messages: [{
+          role: 'user',
+          content: `Classify this job application email. Reply with one lowercase word only.
+
+Subject: ${subject}
+Email content: ${(body || '').slice(0, 1500)}
+
+Reply with one of:
+- rejected  (any rejection, polite or blunt, any language)
+- interview (scheduling, availability, invitation to interview)
+- applied   (application confirmed/received)
+- unclear
+
+One word only.`,
+        }],
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const word = (data.content?.[0]?.text || '').trim().toLowerCase().split(/\s/)[0];
+    if (['rejected', 'interview', 'applied'].includes(word)) return word;
+    return null;
+  } catch { return null; }
+}
+
+// Extract plain text from a Gmail message payload (handles nested multipart)
+function extractEmailText(payload) {
+  if (!payload) return '';
+  if (payload.mimeType === 'text/plain' && payload.body?.data)
+    return Buffer.from(payload.body.data, 'base64').toString('utf-8');
+  if (payload.mimeType === 'text/html' && payload.body?.data)
+    return Buffer.from(payload.body.data, 'base64').toString('utf-8')
+      .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  if (payload.parts) {
+    // Prefer text/plain, fall back to html
+    const plain = payload.parts.find(p => p.mimeType === 'text/plain');
+    if (plain) return extractEmailText(plain);
+    return payload.parts.map(extractEmailText).join(' ');
+  }
+  return '';
+}
+
+// Generate name variants for Gmail search: "Super Play" → ["Super Play", "SuperPlay"]
+function companyNameVariants(name) {
+  const variants = new Set([name]);
+  const noSpace = name.replace(/\s+/g, '');
+  if (noSpace !== name) variants.add(noSpace);
+  return [...variants];
+}
+
+export async function detectEmailStatusWithAI(email) {
+  if (!email) return null;
+  const fast = detectEmailStatus(email);
+  if (fast) return fast;
+  return classifyEmailWithAI(email.subject, email.snippet);
 }
 
 // Searches specifically for interview invitation emails from a company
@@ -110,7 +218,9 @@ export async function getInterviewEmailForCompany(companyName) {
     if (!auth) return null;
     const gmail = google.gmail({ version: 'v1', auth });
 
-    const q = `"${companyName}" (interview OR "schedule a call" OR "schedule time" OR availability OR "next steps" OR "next round" OR "phone screen" OR "video call" OR "let's meet" OR "lets meet" OR "meet with you" OR "invitation") in:anywhere -category:promotions -category:social -subject:"weekly job search digest"`;
+    // Exclude job alert emails only. Allow jobs-noreply (application status updates).
+    // Require real scheduling language — excludes LinkedIn Easy Apply confirmations.
+    const q = `"${companyName}" (interview OR "schedule a call" OR "schedule time" OR "phone screen" OR "video call" OR "zoom link" OR "google meet" OR "teams meeting" OR "book a time" OR "pick a time" OR "calendly" OR "when are you available") in:anywhere -from:jobalerts-noreply@linkedin.com -category:promotions -category:social -subject:"weekly job search digest"`;
     const list = await gmail.users.messages.list({ userId: 'me', q, maxResults: 1 });
     const messages = list.data.messages;
     if (!messages?.length) return null;
@@ -223,6 +333,78 @@ function extractCompanyAndRole(subject, from) {
 }
 
 // Scans inbox for application confirmation emails — returns possible new applications
+// Validates the Gmail token with a cheap API call.
+// Returns true if valid, false if token is expired/revoked.
+export async function checkGmailHealth() {
+  try {
+    const auth = await getAuthedClient();
+    if (!auth) return false;
+    const gmail = google.gmail({ version: 'v1', auth });
+    await gmail.users.getProfile({ userId: 'me' });
+    _tokenValid = true;
+    return true;
+  } catch (err) {
+    if (err?.message?.includes('invalid_grant') || err?.status === 401 || err?.code === 401) {
+      markTokenInvalid();
+    }
+    return false;
+  }
+}
+
+// Scans Gmail for rejection emails, one search per applied company.
+//
+// Approach: search by company name variants (handles "Super Play" vs "SuperPlay"),
+// fetch the full email body, send to Claude for classification. Claude understands
+// rejection in any language and phrasing without needing specific keywords.
+// This avoids false positives from marketing/junk emails unrelated to job applications.
+export async function scanForRejections(companyNames) {
+  if (!companyNames?.length) return [];
+  try {
+    const auth = await getAuthedClient();
+    if (!auth) return [];
+    const gmail = google.gmail({ version: 'v1', auth });
+
+    const results = await Promise.all(companyNames.map(async (company) => {
+      try {
+        // Build name-variant query: "Super Play" OR "SuperPlay"
+        const variants = companyNameVariants(company);
+        const nameQ = variants.map(v => `"${v}"`).join(' OR ');
+        // Search for recent emails mentioning this company — scoped, no junk
+        const q = `(${nameQ}) -from:me -from:jobalerts-noreply@linkedin.com newer_than:120d`;
+        const list = await gmail.users.messages.list({ userId: 'me', q, maxResults: 5 });
+        if (!list.data.messages?.length) return null;
+
+        for (const { id } of list.data.messages) {
+          const msg = await gmail.users.messages.get({ userId: 'me', id, format: 'full' });
+          const headers = msg.data.payload?.headers || [];
+          const get = (n) => headers.find(h => h.name === n)?.value || '';
+          const subject = get('Subject');
+          const from = get('From');
+          const date = get('Date');
+          const snippet = msg.data.snippet || '';
+
+          // Extract full body — Claude reads the whole email, not just the snippet
+          const body = extractEmailText(msg.data.payload);
+
+          // Fast keyword check first (free); fall back to Claude for anything ambiguous
+          const quick = detectEmailStatus({ subject, snippet: body.slice(0, 300) || snippet });
+          const status = quick || await classifyEmailWithAI(subject, body || snippet);
+
+          if (status === 'rejected') {
+            return { company, subject, from, snippet, date, messageId: id };
+          }
+        }
+        return null;
+      } catch (err) {
+        if (err?.message?.includes('invalid_grant') || err?.status === 401) markTokenInvalid();
+        return null;
+      }
+    }));
+
+    return results.filter(Boolean);
+  } catch { return []; }
+}
+
 export async function scanForNewApplications() {
   try {
     const auth = await getAuthedClient();

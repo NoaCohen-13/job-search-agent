@@ -91,14 +91,14 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 
 /* Row layouts */
 .row-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
-.row-2-equal { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.row-2-equal { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: start; }
 
 /* Cards */
 .card { background: white; border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
 .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .card-title { font-size: 12px; font-weight: 700; color: var(--sub); text-transform: uppercase; letter-spacing: 0.4px; }
 .card-action { font-size: 12px; color: var(--accent); font-weight: 500; cursor: pointer; }
-.chart-wrap { height: 148px; position: relative; }
+.chart-wrap { height: 110px; position: relative; }
 
 /* Pipeline */
 .pipeline-row { display: flex; gap: 10px; }
@@ -195,10 +195,12 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .activity-subtext { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
 .activity-time { font-size: 10px; color: var(--muted); flex-shrink: 0; white-space: nowrap; }
 .activity-empty { font-size: 12px; color: var(--muted); font-style: italic; padding: 8px 0; }
+.activity-divider { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; padding: 10px 0 4px; }
 
 /* Gmail scan banner */
 .gmail-scan-banner { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 12px 16px; display: none; }
 .gmail-scan-banner.open { display: block; }
+.gmail-rejection-notice { background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #991b1b; margin-bottom: 10px; }
 .gmail-scan-header { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; color: var(--accent); cursor: pointer; user-select: none; }
 .gmail-scan-header-text { flex: 1; }
 .gmail-scan-toggle { font-size: 11px; color: var(--muted); font-weight: 500; }
@@ -494,6 +496,10 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .settings-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
 .gmail-btn.connected { border-color: var(--green); color: var(--green); }
 .gmail-btn.connected:hover { background: #f0fdf4; }
+.gmail-status-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 0 8px; height: 22px; border-radius: 20px; white-space: nowrap; }
+.gmail-status-pill.ok { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.gmail-status-pill.err { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; cursor: pointer; }
+.gmail-status-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .tab-wrap { position: relative; display: inline-flex; }
 .tab-badge { position: absolute; top: 2px; right: -4px; width: 7px; height: 7px; border-radius: 50%; background: #ef4444; border: 1.5px solid white; display: none; }
 .tab-badge.visible { display: block; }
@@ -545,6 +551,7 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
     <div class="chat-controls">
       <button class="settings-btn" id="settings-btn" title="Search preferences">Settings</button>
       <button class="settings-btn gmail-btn" id="gmail-btn" title="Connect Gmail to track email threads">Connect Gmail</button>
+      <span class="gmail-status-pill" id="gmail-status-pill" style="display:none"></span>
       <div class="history-wrap" id="history-wrap">
         <button class="history-btn" id="history-btn" title="Conversations">Chats</button>
         <div class="history-dropdown" id="history-dropdown">

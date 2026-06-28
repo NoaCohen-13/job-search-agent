@@ -167,9 +167,26 @@ function renderPipeline(data) {
 }
 
 function renderChart(data) {
-  const weekly = data.weeklyActivity || {};
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const values = days.map(d => weekly[d] || 0);
+  // Compute from activity timestamps for the current Mon–Sun week
+  const counts = Object.fromEntries(days.map(d => [d, 0]));
+  const now = new Date();
+  const dow = now.getDay(); // 0=Sun
+  const daysFromMon = dow === 0 ? 6 : dow - 1;
+  const weekStart = new Date(now);
+  weekStart.setHours(0, 0, 0, 0);
+  weekStart.setDate(weekStart.getDate() - daysFromMon);
+  for (const item of (data.activity || [])) {
+    // Only count actual job applications — not rejections or status updates
+    if (item.type !== 'application') continue;
+    if (!item.timestamp) continue;
+    const t = new Date(item.timestamp);
+    if (t >= weekStart) {
+      const label = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][t.getDay()];
+      if (label in counts) counts[label]++;
+    }
+  }
+  const values = days.map(d => counts[d]);
 
   const ctx = document.getElementById('activity-chart').getContext('2d');
   if (chart) chart.destroy();
@@ -223,8 +240,12 @@ function renderActivity(data) {
       const s = a.lastEmail.detectedStatus;
       const isInterview = s === 'interview';
       const isRejection = s === 'rejected';
-      const text = isRejection ? `Rejection from ${a.company}`
+      const isApplied = s === 'applied';
+      // Skip emails we can't classify — avoids "Email from X" noise from commercial/promo emails
+      if (!s) continue;
+      const text = isRejection ? `Rejected by ${a.company}`
                  : isInterview ? `Interview invite from ${a.company}`
+                 : isApplied   ? `Application confirmed at ${a.company}`
                  : `Email from ${a.company}`;
       // Only add if not already covered by the interviewEmail entry for same company+type
       const alreadyCovered = a.interviewEmail?.timestamp && isInterview;
@@ -256,23 +277,34 @@ function renderActivity(data) {
     return false;
   }
 
+  // Build a set of companies that are now rejected — suppress stale interview/screening
+  // activity items for those companies so they don't contradict the current status.
+  const rejectedCompanies = new Set(
+    (data.applications || []).filter(a => a.status === 'rejected').map(a => a.company.toLowerCase())
+  );
+
   // 2. Filter and deduplicate manual activity
-  // Sort newest-first so deduplication keeps the most recent per company
   const STATUS_WORDS = ['applied', 'rejected', 'offer', 'interview', 'screening'];
   const seenCompany = new Set();
   const logged = (data.activity || [])
     .filter(item =>
       item.type === 'application' ||
+      item.type === 'rejection' ||   // ← rejection items from the scan
       item.type === 'interview' ||
       (item.type === 'follow-up' && STATUS_WORDS.some(w => item.text.toLowerCase().includes(w)))
     )
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
     .filter(item => {
       if (isRedundantWithGmail(item.text)) return false;
-      if (item.type === 'application') return true; // always show application events
       const company = activityCompany(item.text);
+      // Hide old interview/screening items if the company is now rejected
+      if (company && rejectedCompanies.has(company.toLowerCase())) {
+        const t = item.text.toLowerCase();
+        if (t.includes('interview') || t.includes('screening')) return false;
+      }
+      if (item.type === 'application' || item.type === 'rejection') return true;
       if (company) {
-        if (seenCompany.has(company)) return false; // dedupe: one non-apply entry per company
+        if (seenCompany.has(company)) return false;
         seenCompany.add(company);
       }
       return true;
@@ -280,14 +312,13 @@ function renderActivity(data) {
     .map(item => ({ ...item, _gmail: false }));
 
   // Gmail events always appear — they're authoritative and shouldn't be cut by the slice limit
-  const importantGmail = emailEvents.filter(e => e._interview || e.text.includes('Rejection'));
-  const otherGmail = emailEvents.filter(e => !e._interview && !e.text.includes('Rejection'));
+  const importantGmail = emailEvents.filter(e => e._interview || e.text.startsWith('Rejected'));
+  const otherGmail = emailEvents.filter(e => !e._interview && !e.text.startsWith('Rejected'));
   const loggedSlice = logged.slice(0, 8 - importantGmail.length);
   const allItems = [...importantGmail, ...loggedSlice, ...otherGmail]
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
     .slice(0, 10);
 
-  // Debug: log what Gmail found (check browser console if icons are missing)
   if (data.gmailConnected) console.log('[Gmail activity]', emailEvents.map(e => `${e.company}: ${e.text}`));
 
   if (allItems.length === 0) {
@@ -295,19 +326,43 @@ function renderActivity(data) {
     return;
   }
 
+  // Compute week start for "This week" divider
+  const _now = new Date();
+  const _dow = _now.getDay();
+  const _weekStart = new Date(_now);
+  _weekStart.setHours(0, 0, 0, 0);
+  _weekStart.setDate(_weekStart.getDate() - (_dow === 0 ? 6 : _dow - 1));
+
   const dismissedActivity = new Set(JSON.parse(localStorage.getItem('dismissed-activity') || '[]'));
+
+  let shownThisWeekDivider = false;
+  let shownOlderDivider = false;
 
   container.innerHTML = allItems.map(item => {
     // Skip Gmail items the user already dismissed
     if (item._gmail && item.messageId && dismissedActivity.has(item.messageId)) return '';
+
+    const isThisWeek = item.timestamp && new Date(item.timestamp) >= _weekStart;
+    let divider = '';
+    if (isThisWeek && !shownThisWeekDivider) {
+      shownThisWeekDivider = true;
+      divider = '<div class="activity-divider">This week</div>';
+    } else if (!isThisWeek && shownThisWeekDivider && !shownOlderDivider) {
+      shownOlderDivider = true;
+      divider = '<div class="activity-divider">Earlier</div>';
+    } else if (!isThisWeek && !shownThisWeekDivider && !shownOlderDivider) {
+      shownOlderDivider = true;
+    }
+    const isRejectionItem = item.type === 'rejection';
     const textColor = item._interview ? 'color:var(--green);font-weight:600' : '';
     const sub = item.subtext ? `<div class="activity-subtext">${esc(item.subtext)}</div>` : '';
     const delBtn = `<button class="activity-del-btn" title="Remove">✕</button>`;
-    if (item._gmail) {
+    // Rejection items always get Gmail icon treatment (links to the email or a search fallback)
+    if (item._gmail || isRejectionItem) {
       const gmailUrl = item.messageId
         ? `https://mail.google.com/mail/u/0/#all/${item.messageId}`
         : `https://mail.google.com/mail/u/0/#search/${encodeURIComponent('subject:"' + (item.subtext || item.company || '') + '"')}`;
-      return `<a class="activity-item activity-item-link" href="${gmailUrl}" target="_blank" rel="noopener" data-gmail-msgid="${esc(item.messageId || '')}">
+      return divider + `<a class="activity-item activity-item-link" href="${gmailUrl}" target="_blank" rel="noopener" data-gmail-msgid="${esc(item.messageId || '')}">
         <div class="activity-dot activity-dot-gmail">${gmailIcon(13)}</div>
         <div class="activity-text-wrap">
           <div class="activity-text" style="${textColor}">${esc(item.text)}</div>
@@ -317,7 +372,7 @@ function renderActivity(data) {
         ${delBtn}
       </a>`;
     }
-    return `<div class="activity-item" data-activity-ts="${esc(item.timestamp)}">
+    return divider + `<div class="activity-item" data-activity-ts="${esc(item.timestamp)}">
       <div class="activity-dot" style="background:${dotColors[item.type] || 'var(--muted)'}"></div>
       <div class="activity-text-wrap">
         <div class="activity-text" style="${textColor}">${esc(item.text)}</div>
@@ -637,10 +692,11 @@ async function loadDashboard() {
     renderSavedTab(data);
     renderApplicationsList(data);
     updateGmailBtn(data.gmailConnected);
-    // Scan Gmail inbox for untracked applications — once per session
+    // Scan Gmail inbox for untracked applications + rejections — once per session
     if (data.gmailConnected && !_gmailScanDone) {
       _gmailScanDone = true;
       checkGmailNewApplications();
+      scanGmailRejections();
     }
   } catch (err) {
     console.error('Failed to load dashboard:', err);
@@ -651,6 +707,21 @@ function updateGmailBtn(connected) {
   const btn = el('gmail-btn');
   if (!btn) return;
   btn.style.display = connected ? 'none' : '';
+  btn.classList.toggle('connected', connected);
+
+  // Pill only shows when connected (green indicator). Disconnected → show the button instead.
+  const pill = el('gmail-status-pill');
+  if (pill) {
+    if (connected) {
+      pill.style.display = '';
+      pill.className = 'gmail-status-pill ok';
+      pill.title = 'Gmail connected — inbox is being scanned for status updates';
+      pill.textContent = 'Gmail';
+      pill.onclick = null;
+    } else {
+      pill.style.display = 'none';
+    }
+  }
 
   // Keep onboarding modal Gmail section in sync
   const obStatus = el('ob-gmail-status');
@@ -660,11 +731,32 @@ function updateGmailBtn(connected) {
       const connectBtn = el('ob-gmail-connect');
       if (connectBtn) connectBtn.style.display = 'none';
     } else {
-      obStatus.innerHTML = '<span style="color:var(--muted);font-size:12px">Not connected</span>';
+      obStatus.innerHTML = '<span style="color:#b91c1c;font-weight:600">⚠ Gmail disconnected</span> <span style="color:var(--muted);font-size:12px">— reconnect to scan your inbox</span>';
       const connectBtn = el('ob-gmail-connect');
       if (connectBtn) connectBtn.style.display = '';
     }
   }
+}
+
+// ── Gmail Rejection Scan ──────────────────────────────────────────────────
+async function scanGmailRejections() {
+  try {
+    const resp = await fetch('/api/gmail/scan-rejections');
+    const { updated } = await resp.json();
+    if (updated?.length) {
+      // Reload dashboard so pipeline + activity reflect the new statuses
+      await loadDashboard();
+      // Show a subtle notice
+      const banner = el('gmail-scan-banner');
+      if (banner) {
+        const notice = document.createElement('div');
+        notice.className = 'gmail-rejection-notice';
+        notice.innerHTML = `📬 Gmail: updated ${updated.length} application${updated.length > 1 ? 's' : ''} to <strong>rejected</strong> based on your inbox (${updated.map(u => u.company).join(', ')})`;
+        banner.parentElement?.insertBefore(notice, banner);
+        setTimeout(() => notice.remove(), 8000);
+      }
+    }
+  } catch {}
 }
 
 // ── Gmail Inbox Scan ───────────────────────────────────────────────────────
@@ -687,17 +779,26 @@ function renderGmailScanBanner() {
   if (!banner) return;
   const count = _gmailPendingApps.length;
   const itemsHtml = _gmailBannerExpanded
-    ? `<div class="gmail-scan-items">${_gmailPendingApps.map((r, i) => `
+    ? `<div class="gmail-scan-items">${_gmailPendingApps.map((r, i) => {
+        const isRejected = r.detectedStatus === 'rejected';
+        const isInterview = r.detectedStatus === 'interview';
+        const statusBadge = isRejected
+          ? `<span style="color:var(--red,#e05);font-size:11px;font-weight:600;margin-left:6px">✕ rejected</span>`
+          : isInterview
+          ? `<span style="color:var(--green);font-size:11px;font-weight:600;margin-left:6px">★ interview</span>`
+          : '';
+        return `
         <div class="gmail-scan-item" id="gscan-item-${i}">
           <div class="gmail-scan-info">
-            <div class="gmail-scan-company">${esc(r.company)}${r.role ? ' <span style="font-weight:400;color:var(--muted)">— ' + esc(r.role) + '</span>' : ''}</div>
-            <div class="gmail-scan-sub">${esc(r.subject)}</div>
+            <div class="gmail-scan-company">${esc(r.company)}${r.role ? ' <span style="font-weight:400;color:var(--muted)">— ' + esc(r.role) + '</span>' : ''}${statusBadge}</div>
+            <div class="gmail-scan-sub">${esc(r.latestEmail?.subject || r.subject)}</div>
           </div>
           <div class="gmail-scan-btns">
-            <button class="gmail-scan-add" data-idx="${i}">+ Add</button>
+            <button class="gmail-scan-add" data-idx="${i}" data-status="${r.detectedStatus || ''}">${isRejected ? 'Log rejection' : isInterview ? 'Log + interview' : '+ Add'}</button>
             <button class="gmail-scan-dismiss" data-idx="${i}">Dismiss</button>
           </div>
-        </div>`).join('')}</div>`
+        </div>`;
+      }).join('')}</div>`
     : '';
   banner.innerHTML = `
     <div class="gmail-scan-header" id="gmail-scan-toggle">
@@ -715,12 +816,12 @@ function renderGmailScanBanner() {
     btn.addEventListener('click', async () => {
       const i = parseInt(btn.dataset.idx);
       const r = _gmailPendingApps[i];
-      btn.textContent = '✓ Added';
+      btn.textContent = r.detectedStatus === 'rejected' ? '✓ Logged' : '✓ Added';
       btn.disabled = true;
       await fetch('/api/gmail/add-application', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ company: r.company, role: r.role || '', dateApplied: r.timestamp }),
+        body: JSON.stringify({ company: r.company, role: r.role || '', dateApplied: r.timestamp, status: r.detectedStatus || 'applied' }),
       });
       _gmailPendingApps = _gmailPendingApps.filter((_, j) => j !== i);
       if (!_gmailPendingApps.length) { banner.classList.remove('open'); }
