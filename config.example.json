@@ -2,9 +2,9 @@
   "name": "Your Name",
   "email": "you@email.com",
   "phone": "your-phone",
-  "targetRole": "Junior PM",
-  "location": "Your city, hybrid/remote",
-  "industries": ["B2B SaaS", "Consumer apps", "AI/ML", "Fintech"],
+  "targetRole": "Your target role (e.g. Product Manager, APM, Growth PM)",
+  "location": "Your city + work preference (e.g. Tel Aviv, hybrid)",
+  "industries": ["e.g. B2B SaaS", "Consumer apps", "Fintech"],
   "resumePath": "workspace/resume/base_resume.md",
   "dealBreakers": [],
 
