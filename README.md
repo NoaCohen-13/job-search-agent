@@ -91,6 +91,24 @@ Or just talk: *"I applied to APM at Monday.com"*, *"Research Wix for me"*, *"Wha
 
 ---
 
+## Project structure
+
+```
+.claude/
+├── agents/
+│   └── email-classifier/     ← sub-agent: classifies emails as rejection / interview / confirmation
+└── skills/
+    ├── resume-tailoring/     ← /tailor workflow
+    ├── resume-scoring/       ← /score workflow
+    ├── interview-prep/       ← /prep workflow
+    └── company-research/     ← /research workflow
+scripts/
+└── test-email-classifier.mjs ← dev tool for testing the email classifier
+src/                          ← Express server, agent, Gmail sync, scheduler
+public/                       ← frontend dashboard (vanilla JS, no build step)
+chrome-extension/             ← unpacked Chrome extension for LinkedIn
+```
+
 ## Workspace structure
 
 All your personal data lives in `workspace/` (gitignored):
