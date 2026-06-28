@@ -62,6 +62,13 @@ On first run, the app shows a short onboarding to confirm your target role and l
 - Click "Connect Gmail" in the dashboard header and follow the OAuth flow
 - Once connected, the agent scans your inbox on every load to auto-detect rejections and interview invites
 
+**Optional: Weekly digest email (every Monday at 8am)**
+- Add your `gmailAppPassword` to `config.json` ([how to get one](https://support.google.com/accounts/answer/185833))
+- Run once to install the macOS LaunchAgent — wakes your Mac from sleep if needed, no server required:
+```bash
+bash scripts/install-weekly-digest.sh
+```
+
 ---
 
 ## Tabs
