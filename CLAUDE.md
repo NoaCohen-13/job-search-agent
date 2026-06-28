@@ -69,15 +69,9 @@ workspace/
 3. Highlight anything relevant to how the user should position themselves.
 
 ### 3. Tailor Resume / Cover Letter — `Tailor for [company/role]`
-1. Read `workspace/resume/base_resume.md` as the foundation — never alter the base file.
-2. Find the working folder using the same lookup as /score (savedJob id first, then application, then company slug).
-3. Find the job description — look for `job_description.md` in the working folder.
-   - If not found, ask the user to paste the JD and save it to the working folder.
-3. Identify the top 3-5 skills/keywords the JD emphasizes.
-4. Rewrite the resume summary and reorder/rephrase bullet points to match — do not fabricate experience.
-5. Save the tailored version to the same folder the JD came from (`tailored_resume.md`).
-6. Draft a cover letter if requested and save alongside (`cover_letter.md`).
-7. Suggest running `/score [company]` next to see how much the tailoring improved the match.
+Invoke the **resume-tailoring** skill (`.claude/skills/resume-tailoring/SKILL.md`).
+
+The skill handles: locating the working folder, reading the base resume, extracting JD keywords, rewriting without fabrication, saving `tailored_resume.md`, and nudging to run `/score` next.
 
 ### 4. Weekly Pipeline Review — `Weekly review` or every Monday
 1. Open `workspace/applications/tracker.md`.
