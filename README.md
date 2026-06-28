@@ -129,6 +129,9 @@ Reusable, self-contained instruction sets for specific workflows, defined in `.c
 | Skill | Triggered by | What it does |
 |-------|-------------|-------------|
 | `resume-tailoring` | `/tailor [company]` | Reads the base resume, extracts the top 3–5 JD keywords, rewrites the summary and bullets to match without fabricating experience, saves `tailored_resume.md` to the correct working folder |
+| `resume-scoring` | `/score [company]` | Scores resume fit against a JD (0–100), identifies keyword gaps with severity levels, saves `ats_score.json`, shows delta if re-scoring |
+| `interview-prep` | `/prep [company]` | Generates 5 behavioral + 5 product sense questions tailored to the role, adds STAR structures grounded in the user's real experience, saves `interview_notes.md` |
+| `company-research` | `/research [company]` | Web searches for product, news, culture, and PM signals; saves structured notes to the right folder based on application stage |
 
 ---
 

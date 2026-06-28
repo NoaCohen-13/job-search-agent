@@ -64,9 +64,9 @@ workspace/
 6. Check `workspace/companies/[company-name].md` — if company research exists, surface the highlights.
 
 ### 2. Research a Company — `Research [company]`
-1. Use web search to gather: what the company does, recent news, product areas, culture signals, funding stage, PM team size/structure.
-2. Save findings to `workspace/applications/[company-name]/research.md` (if applied) or `workspace/companies/[company-name].md` (if saved/prospecting).
-3. Highlight anything relevant to how the user should position themselves.
+Invoke the **company-research** skill (`.claude/skills/company-research/SKILL.md`).
+
+The skill handles: web searches, structured note format, correct save location based on application stage, and surfacing the most relevant highlights.
 
 ### 3. Tailor Resume / Cover Letter — `Tailor for [company/role]`
 Invoke the **resume-tailoring** skill (`.claude/skills/resume-tailoring/SKILL.md`).
@@ -89,57 +89,14 @@ The skill handles: locating the working folder, reading the base resume, extract
 4. Update `workspace/courses/learning_plan.md` with the top gaps and recommended resources.
 
 ### 6. Score Resume Fit — `/score [company]`
-This works both **before and after applying**. Run it to check fit, tailor, then re-score before submitting.
+Invoke the **resume-scoring** skill (`.claude/skills/resume-scoring/SKILL.md`).
 
-**Step 1 — Locate the working folder (in this exact order):**
-1. Read `data.json` → check `savedJobs` array for an entry where `id === argument`. If found: working folder = `workspace/companies/[savedJob.id]/`. **Do not slugify the company name — use the full savedJob id as-is.**
-2. Check `data.json` → `applications` for a matching company. If found: working folder = `workspace/applications/[app.id]/`.
-3. Otherwise: working folder = `workspace/companies/[slugify(argument)]/`.
-
-**Step 2 — Find the JD:**
-- Look for `job_description.md` in the working folder.
-- If missing, ask the user to paste the JD. Save it to `[working-folder]/job_description.md` before continuing.
-
-**Step 3 — Find the resume:**
-- Check `[working-folder]/tailored_resume.md` — use it if it exists (`resumeUsed: "tailored"`).
-- Otherwise use `workspace/resume/base_resume.md` (`resumeUsed: "base"`).
-
-**Step 4 — Score:**
-- Extract the top skills, tools, and keywords the JD emphasizes (frequency + prominence).
-- Cross-reference with the resume: identify which JD keywords are present, weak, or absent.
-- Compute a match score (0–100 integer).
-- Identify 3–5 missing or underemphasized keywords with JD frequency and severity (`"mid"` = weak in resume, `"lo"` = absent).
-- Write one short actionable recommendation.
-
-**Step 5 — Check for previous score:**
-- Read `[working-folder]/ats_score.json` if it exists — note the previous score to show the delta.
-
-**Step 6 — Save:**
-```json
-{
-  "score": 84,
-  "verdict": "Strong match",
-  "recommendation": "Add 'A/B testing' and 'SQL' to your resume summary.",
-  "gaps": [
-    { "keyword": "A/B testing", "count": 3, "severity": "mid" },
-    { "keyword": "SQL", "count": 2, "severity": "mid" },
-    { "keyword": "LTV modeling", "count": 0, "severity": "lo" }
-  ],
-  "resumeUsed": "tailored",
-  "scoredAt": "<ISO timestamp>"
-}
-```
-
-**Step 7 — Reply:**
-- Report the score, verdict, delta if re-scoring (e.g. "up from 61% → 84%"), and top gaps.
-- If not yet applied and score is strong (≥75%), suggest applying. If weak (<55%), suggest tailoring first with `/tailor [company]`.
+The skill handles: folder lookup, JD keyword extraction, 0–100 scoring with gap analysis, delta vs previous score, JSON output to `ats_score.json`, and the post-score nudge.
 
 ### 7. Interview Prep — `Prep for [company] interview`
-1. Read `workspace/applications/[company-name]/research.md` and `job_description.md`.
-2. Generate 10 likely interview questions (behavioral + product sense) tailored to the role.
-3. For each behavioral question, suggest a STAR-format answer structure based on the user's resume.
-4. Save to `workspace/applications/[company-name]/interview_notes.md`.
-5. Optionally, offer to schedule a mock interview session.
+Invoke the **interview-prep** skill (`.claude/skills/interview-prep/SKILL.md`).
+
+The skill handles: loading JD + research + resume, generating 5 behavioral + 5 product sense questions, STAR structures from real experience, saving to `interview_notes.md`, and offering a mock interview follow-up.
 
 ### 8. Job Discovery — `/find [role] [location]`
 1. If role or location are missing from the command, read `workspace/profile.json` for defaults. If the file doesn't exist either, ask the user for both.
