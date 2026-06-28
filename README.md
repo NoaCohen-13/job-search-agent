@@ -122,6 +122,16 @@ workspace/
 
 ---
 
+## Skills
+
+Reusable, self-contained instruction sets for specific workflows, defined in `.claude/skills/`:
+
+| Skill | Triggered by | What it does |
+|-------|-------------|-------------|
+| `resume-tailoring` | `/tailor [company]` | Reads the base resume, extracts the top 3–5 JD keywords, rewrites the summary and bullets to match without fabricating experience, saves `tailored_resume.md` to the correct working folder |
+
+---
+
 ## Sub-agents
 
 The project uses a dedicated Claude sub-agent for email classification, defined in `.claude/agents/`:
