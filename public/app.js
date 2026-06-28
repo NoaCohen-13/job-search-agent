@@ -716,7 +716,7 @@ function updateGmailBtn(connected) {
       pill.style.display = '';
       pill.className = 'gmail-status-pill ok';
       pill.title = 'Gmail connected — inbox is being scanned for status updates';
-      pill.textContent = 'Gmail';
+      pill.textContent = 'Gmail Connected';
       pill.onclick = null;
     } else {
       pill.style.display = 'none';
