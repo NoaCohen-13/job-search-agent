@@ -31,7 +31,8 @@ export async function handleCallback(code, redirectUri) {
   const client = getOAuth2Client(redirectUri);
   const { tokens } = await client.getToken(code);
   writeFileSync(TOKEN_FILE, JSON.stringify(tokens, null, 2));
-  _tokenValid = true; // reset after fresh OAuth grant
+  _tokenValid = true;
+  _healthCache = { result: true, ts: Date.now() }; // mark healthy immediately after connect
   return tokens;
 }
 
@@ -41,6 +42,8 @@ export function loadToken() {
 }
 
 let _tokenValid = true; // flipped to false on invalid_grant
+let _healthCache = { result: null, ts: 0 };
+const HEALTH_TTL = 5 * 60 * 1000; // re-check at most every 5 minutes
 
 export function isConnected() {
   return !!loadToken() && !!getCredentials() && _tokenValid;
@@ -395,9 +398,13 @@ function extractCompanyAndRole(subject, from) {
 // Validates the Gmail token with a cheap API call.
 // Returns true if valid, false if token is expired/revoked.
 export async function checkGmailHealth() {
+  // Return cached result if checked within the last 5 minutes
+  if (_healthCache.result !== null && Date.now() - _healthCache.ts < HEALTH_TTL) {
+    return _healthCache.result;
+  }
   try {
     const auth = await getAuthedClient();
-    if (!auth) return false;
+    if (!auth) { _healthCache = { result: false, ts: Date.now() }; return false; }
     const gmail = google.gmail({ version: 'v1', auth });
     // 5-second timeout — never let a Gmail network call block the dashboard
     await Promise.race([
@@ -405,11 +412,13 @@ export async function checkGmailHealth() {
       new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
     ]);
     _tokenValid = true;
+    _healthCache = { result: true, ts: Date.now() };
     return true;
   } catch (err) {
     if (err?.message?.includes('invalid_grant') || err?.status === 401 || err?.code === 401) {
       markTokenInvalid();
     }
+    _healthCache = { result: false, ts: Date.now() };
     return false;
   }
 }
