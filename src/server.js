@@ -755,7 +755,7 @@ app.get('/api/auth/gmail/callback', async (req, res) => {
   if (!code) return res.status(400).send('Missing code');
   try {
     await handleCallback(code, GMAIL_REDIRECT);
-    res.send('<script>window.close();window.opener&&window.opener.location.reload();</script><p>Gmail connected! You can close this tab.</p>');
+    res.redirect('/?gmail=connected');
   } catch (err) {
     res.status(500).send(`Error: ${err.message}`);
   }

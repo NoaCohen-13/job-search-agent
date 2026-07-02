@@ -453,23 +453,8 @@ function initOnboarding() {
   el('ob-skip').addEventListener('click', closeOnboarding);
   el('settings-btn').addEventListener('click', openOnboarding);
 
-  function openGmailConnect() {
-    const popup = window.open('/api/auth/gmail', '_blank', 'width=500,height=600');
-    // Poll until the popup closes or Gmail becomes connected, then reload dashboard
-    const poll = setInterval(async () => {
-      try {
-        const r = await fetch('/api/gmail/status');
-        const { connected } = await r.json();
-        if (connected || !popup || popup.closed) {
-          clearInterval(poll);
-          if (connected) loadDashboard();
-        }
-      } catch { clearInterval(poll); }
-    }, 1500);
-  }
-
-  el('gmail-btn').addEventListener('click', openGmailConnect);
-  el('ob-gmail-connect').addEventListener('click', openGmailConnect);
+  el('gmail-btn').addEventListener('click', () => { window.location.href = '/api/auth/gmail'; });
+  el('ob-gmail-connect').addEventListener('click', () => { window.location.href = '/api/auth/gmail'; });
   el('ob-role').addEventListener('keydown', (e) => { if (e.key === 'Enter') el('ob-location').focus(); });
   el('ob-location').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveProfile(); });
 }
