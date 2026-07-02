@@ -134,48 +134,45 @@ app.get('/api/data', async (req, res) => {
     data.gmailConnected = false;
   }
 
-  // Attach last email info and auto-detect status changes when Gmail is connected
-  if (data.gmailConnected && data.applications?.length) {
-    // Fetch last email for active apps + rejected apps (so rejection emails show in activity)
-    const active = data.applications.filter(a => ['applied','screening','interview','offer'].includes(a.status));
-    const rejected = data.applications.filter(a => a.status === 'rejected');
-    const forEmail = [...active, ...rejected];
-    if (forEmail.length) {
-      const emails = await getEmailSummaries(forEmail.map(a => a.company));
-      let dataChanged = false;
-      // Interview-specific search only for active apps
-      const interviewEmails = await Promise.all(
-        active.map(a => getInterviewEmailForCompany(a.company))
-      );
-      for (let i = 0; i < forEmail.length; i++) {
-        const app = forEmail[i];
-        const email = emails[app.company];
-        if (email) {
-          app.lastEmail = email;
-          app.lastEmail.detectedStatus = await detectEmailStatusWithAI(email);
-        }
-        // Validate the interview email is actually a job interview — avoids newsletters
-        const interviewEmail = active.includes(app) ? interviewEmails[active.indexOf(app)] : null;
-        if (interviewEmail) {
-          const iStatus = await detectEmailStatusWithAI(interviewEmail);
-          if (iStatus === 'interview') app.interviewEmail = interviewEmail;
-        }
+  res.json(data);
+});
 
-        // Auto-update status only for active apps (not already-rejected ones)
-        if (active.includes(app) && app.lastEmail?.detectedStatus && app.lastEmail.detectedStatus !== app.status) {
-          if (app.lastEmail.detectedStatus === 'rejected' ||
-              (app.lastEmail.detectedStatus === 'interview' && ['applied','screening'].includes(app.status))) {
-            app.status = app.lastEmail.detectedStatus;
-            dataChanged = true;
-          }
-        }
-      }
-      if (dataChanged) {
-        writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+// Slow endpoint — fetches Gmail email summaries per company and returns enriched apps.
+// Called lazily by the frontend after the dashboard has already rendered.
+app.get('/api/data/emails', async (req, res) => {
+  if (!isConnected()) return res.json({ apps: [] });
+  const data = readData();
+  const active = data.applications.filter(a => ['applied','screening','interview','offer'].includes(a.status));
+  const rejected = data.applications.filter(a => a.status === 'rejected');
+  const forEmail = [...active, ...rejected];
+  if (!forEmail.length) return res.json({ apps: [] });
+
+  const emails = await getEmailSummaries(forEmail.map(a => a.company));
+  const interviewEmails = await Promise.all(active.map(a => getInterviewEmailForCompany(a.company)));
+  let dataChanged = false;
+
+  for (let i = 0; i < forEmail.length; i++) {
+    const app = forEmail[i];
+    const email = emails[app.company];
+    if (email) {
+      app.lastEmail = email;
+      app.lastEmail.detectedStatus = await detectEmailStatusWithAI(email);
+    }
+    const interviewEmail = active.includes(app) ? interviewEmails[active.indexOf(app)] : null;
+    if (interviewEmail) {
+      const iStatus = await detectEmailStatusWithAI(interviewEmail);
+      if (iStatus === 'interview') app.interviewEmail = interviewEmail;
+    }
+    if (active.includes(app) && app.lastEmail?.detectedStatus && app.lastEmail.detectedStatus !== app.status) {
+      if (app.lastEmail.detectedStatus === 'rejected' ||
+          (app.lastEmail.detectedStatus === 'interview' && ['applied','screening'].includes(app.status))) {
+        app.status = app.lastEmail.detectedStatus;
+        dataChanged = true;
       }
     }
   }
-  res.json(data);
+  if (dataChanged) writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  res.json({ apps: forEmail });
 });
 
 app.post('/api/chat', async (req, res) => {

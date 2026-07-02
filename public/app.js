@@ -688,15 +688,37 @@ async function loadDashboard() {
     renderSavedTab(data);
     renderApplicationsList(data);
     updateGmailBtn(data.gmailConnected);
-    // Scan Gmail inbox for untracked applications + rejections — once per session
-    if (data.gmailConnected && !_gmailScanDone) {
-      _gmailScanDone = true;
-      checkGmailNewApplications();
-      scanGmailRejections();
+    // After rendering core data, lazily load Gmail email annotations in the background
+    if (data.gmailConnected) {
+      loadEmailEnrichment(data);
+      if (!_gmailScanDone) {
+        _gmailScanDone = true;
+        checkGmailNewApplications();
+        scanGmailRejections();
+      }
     }
   } catch (err) {
     console.error('Failed to load dashboard:', err);
   }
+}
+
+// Fetch Gmail email annotations separately so they don't block the initial render
+async function loadEmailEnrichment(data) {
+  try {
+    const r = await fetch('/api/data/emails');
+    const { apps: enriched } = await r.json();
+    if (!enriched?.length) return;
+    // Merge enriched email data into the already-rendered dashboard data
+    for (const enrichedApp of enriched) {
+      const app = data.applications.find(a => a.id === enrichedApp.id);
+      if (app) {
+        app.lastEmail = enrichedApp.lastEmail;
+        app.interviewEmail = enrichedApp.interviewEmail;
+      }
+    }
+    renderActivity(data);
+    renderPipeline(data);
+  } catch {}
 }
 
 function updateGmailBtn(connected) {
