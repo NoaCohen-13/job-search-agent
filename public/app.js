@@ -956,24 +956,30 @@ function preprocessMessage(text) {
 }
 
 // File attachment handler
-el('file-input')?.addEventListener('change', async (e) => {
+el('file-input')?.addEventListener('change', (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
   e.target.value = '';
 
-  // Don't send automatically — store file and let user add text first
   window._pendingFile = file;
-  const input = el('chat-input');
-  input.value = input.value ? input.value + ` [📎 ${file.name}]` : `[📎 ${file.name}] `;
-  input.focus();
-  // Place cursor at start so user can type their message before the attachment tag
-  input.setSelectionRange(0, 0);
+
+  // Show badge above input — don't touch the text field
+  const badge = el('file-badge');
+  badge.style.display = 'flex';
+  badge.innerHTML = `<span style="font-size:13px">📎</span><span class="file-badge-name">${esc(file.name)}</span><span class="file-badge-remove" id="file-badge-remove">✕</span>`;
+  el('file-badge-remove')?.addEventListener('click', () => {
+    window._pendingFile = null;
+    badge.style.display = 'none';
+  });
+  el('chat-input')?.focus();
 });
 
 async function uploadPendingFile() {
   const file = window._pendingFile;
   if (!file) return null;
   window._pendingFile = null;
+  const badge = el('file-badge');
+  if (badge) badge.style.display = 'none';
   const form = new FormData();
   form.append('file', file);
   try {
@@ -989,8 +995,7 @@ async function sendMessage(text) {
   if (window._pendingFile) {
     const result = await uploadPendingFile();
     if (result?.ok) {
-      text = text.replace(/\[📎[^\]]+\]/g, '').trim();
-      text = `${text}\n\n[Attached file saved: ${result.message}${result.preview ? '\n\nPreview:\n```\n' + result.preview + '…\n```' : ''}]`;
+      text = `${text}\n\n[Attached file: ${result.message}${result.preview ? '\n\nPreview:\n```\n' + result.preview + '…\n```' : ''}]`;
     }
   }
 

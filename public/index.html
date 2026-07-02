@@ -304,6 +304,10 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .attach-btn { width: 28px; height: 28px; border-radius: 7px; border: none; background: none; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: color 0.15s; }
 .attach-btn:hover { color: var(--accent); }
+.file-badge { display: flex; align-items: center; gap: 6px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 5px 10px; font-size: 12px; color: #2563eb; margin-bottom: 6px; }
+.file-badge-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-badge-remove { cursor: pointer; opacity: 0.6; font-size: 14px; line-height: 1; }
+.file-badge-remove:hover { opacity: 1; }
 .stop-btn { width: 28px; height: 28px; border-radius: 7px; background: #ef4444; border: none; color: white; cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: opacity 0.15s; }
 .stop-btn:hover { opacity: 0.85; }
 .shortcuts { display: flex; gap: 5px; margin-top: 7px; flex-wrap: wrap; }
@@ -756,6 +760,7 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
       </div>
     </div>
     <div class="chat-input-wrap">
+      <div id="file-badge" class="file-badge" style="display:none"></div>
       <div class="chat-input-box">
         <textarea class="chat-input" id="chat-input" placeholder="Message your agent…" rows="1"></textarea>
         <label class="attach-btn" id="attach-btn" title="Upload resume or file">
