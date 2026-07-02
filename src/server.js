@@ -800,8 +800,15 @@ app.get('/api/gmail/new-applications', async (req, res) => {
       return true;
     });
 
+    // Hard blocklist — ATS platforms must never be stored as company names
+    const ATS_PLATFORMS = new Set(['myworkday', 'workday', 'greenhouse', 'lever',
+      'bamboohr', 'jobvite', 'smartrecruiters', 'workable', 'taleo', 'icims', 'ashby', 'comeet']);
+    const safeUntracked = untracked.filter(r =>
+      r.company && !ATS_PLATFORMS.has(r.company.toLowerCase().replace(/[^a-z]/g, ''))
+    );
+
     const added = [];
-    for (const r of untracked) {
+    for (const r of safeUntracked) {
       const id = slugify(r.company) + '-' + Date.now();
       const dateApplied = r.timestamp ? r.timestamp.slice(0, 10) : new Date().toISOString().slice(0, 10);
       data.applications.push({ id, company: r.company, role: r.role || '', status: 'applied', dateApplied, nextAction: '', source: 'gmail' });

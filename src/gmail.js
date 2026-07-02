@@ -319,9 +319,14 @@ const GENERIC_SENDERS = new Set([
 ]);
 
 const BAD_COMPANY_PREFIXES = ['we ', 're ', 'fw ', 'fwd ', 'hi ', 'hello ', 'dear ', 'your ', 'got '];
+// ATS platforms and generic senders that should never be stored as a company name
 const BAD_COMPANY_NAMES = new Set(['we', 're', 'fw', 'fwd', 'hi', 'hello', 'dear', 'we got it',
   'we received', 'your application', 'thanks', 'thank you', 'application', 'received', 'got it',
-  'thank', 'the', 'a', 'an', 'and']);
+  'thank', 'the', 'a', 'an', 'and',
+  // ATS platforms
+  'myworkday', 'workday', 'greenhouse', 'lever', 'bamboohr', 'jobvite',
+  'smartrecruiters', 'workable', 'taleo', 'icims', 'ashby', 'rippling', 'comeet',
+]);
 
 function isValidCompanyName(name) {
   if (!name || name.length < 2) return false;
