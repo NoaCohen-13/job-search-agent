@@ -399,7 +399,11 @@ export async function checkGmailHealth() {
     const auth = await getAuthedClient();
     if (!auth) return false;
     const gmail = google.gmail({ version: 'v1', auth });
-    await gmail.users.getProfile({ userId: 'me' });
+    // 5-second timeout — never let a Gmail network call block the dashboard
+    await Promise.race([
+      gmail.users.getProfile({ userId: 'me' }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+    ]);
     _tokenValid = true;
     return true;
   } catch (err) {
