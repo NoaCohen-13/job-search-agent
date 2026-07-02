@@ -779,17 +779,27 @@ async function scanGmailRejections() {
 
 // ── Gmail Inbox Scan ───────────────────────────────────────────────────────
 async function checkGmailNewApplications() {
-  const banner = el('gmail-scan-banner');
-  if (!banner) return;
   try {
-    const dismissed = JSON.parse(localStorage.getItem('dismissed-gmail-apps') || '[]');
     const resp = await fetch('/api/gmail/new-applications');
-    const { results } = await resp.json();
-    _gmailPendingApps = (results || []).filter(r => !dismissed.includes(r.messageId));
-    if (!_gmailPendingApps.length) { banner.classList.remove('open'); return; }
-    banner.classList.add('open');
-    renderGmailScanBanner();
+    const { added } = await resp.json();
+    if (added?.length) {
+      // Applications were auto-added — reload dashboard and show a brief notice
+      await loadDashboard();
+      const names = added.map(a => a.company).join(', ');
+      showGmailNotice(`📬 Auto-added ${added.length} new application${added.length > 1 ? 's' : ''} from Gmail: ${names}`);
+    }
   } catch {}
+}
+
+function showGmailNotice(msg) {
+  const existing = document.querySelector('.gmail-auto-notice');
+  if (existing) existing.remove();
+  const notice = document.createElement('div');
+  notice.className = 'gmail-auto-notice';
+  notice.textContent = msg;
+  const banner = el('gmail-scan-banner');
+  banner?.parentElement?.insertBefore(notice, banner);
+  setTimeout(() => notice.remove(), 6000);
 }
 
 function renderGmailScanBanner() {

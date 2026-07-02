@@ -779,12 +779,12 @@ app.get('/api/gmail/status', (req, res) => {
   res.json({ connected: isConnected() });
 });
 
-// Scan inbox for application confirmation emails from companies not yet in tracker
+// Scan inbox for application confirmation emails and AUTO-ADD them to the tracker.
+// No user confirmation needed — same pattern as the rejection scan.
 app.get('/api/gmail/new-applications', async (req, res) => {
-  if (!isConnected()) return res.json({ results: [] });
+  if (!isConnected()) return res.json({ results: [], added: [] });
   try {
     const data = readData();
-    // Normalize: strip all non-alphanumeric so "Moon Active" == "moonactive"
     const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
     const tracked = new Set([
       ...data.applications.map(a => norm(a.company)),
@@ -799,15 +799,23 @@ app.get('/api/gmail/new-applications', async (req, res) => {
       seen.add(key);
       return true;
     });
-    // For each untracked application, check if there's already a more recent status email
-    const results = await Promise.all(untracked.map(async (r) => {
-      const latest = await getLastEmailForCompany(r.company);
-      const detectedStatus = await detectEmailStatusWithAI(latest);
-      return { ...r, detectedStatus: detectedStatus || null, latestEmail: latest || null };
-    }));
-    res.json({ results });
+
+    const added = [];
+    for (const r of untracked) {
+      const id = slugify(r.company) + '-' + Date.now();
+      const dateApplied = r.timestamp ? r.timestamp.slice(0, 10) : new Date().toISOString().slice(0, 10);
+      data.applications.push({ id, company: r.company, role: r.role || '', status: 'applied', dateApplied, nextAction: '', source: 'gmail' });
+      data.stats.totalApplied = (data.stats.totalApplied || 0) + 1;
+      data.activity.unshift({ text: `Applied to ${r.role ? r.role + ' at ' : ''}${r.company}`, type: 'application', timestamp: r.timestamp || new Date().toISOString() });
+      if (data.activity.length > 20) data.activity = data.activity.slice(0, 20);
+      const dir = resolve(ROOT, 'workspace', 'applications', id);
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      added.push({ company: r.company, role: r.role });
+    }
+    if (added.length) writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+    res.json({ results: [], added });
   } catch {
-    res.json({ results: [] });
+    res.json({ results: [], added: [] });
   }
 });
 
