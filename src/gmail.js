@@ -491,6 +491,9 @@ export async function scanForNewApplications() {
       'subject:"your application has been received"',
       'subject:"application submitted"',
       'subject:"successfully applied"',
+      'subject:"careers - application received"',  // Workday (Autodesk, etc.)
+      'subject:"you\'ve been referred"',            // referral notifications
+      'subject:"application sent"',
     ].join(' OR ');
 
     const list = await gmail.users.messages.list({

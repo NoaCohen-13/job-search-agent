@@ -945,6 +945,29 @@ function preprocessMessage(text) {
   return text.replace(/^\//, '');
 }
 
+// File attachment handler
+el('file-input')?.addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  e.target.value = ''; // reset so same file can be re-uploaded
+
+  const form = new FormData();
+  form.append('file', file);
+
+  appendMessage('user', `📎 Uploading ${file.name}…`);
+  try {
+    const r = await fetch('/api/upload-resume', { method: 'POST', body: form });
+    const data = await r.json();
+    if (data.ok) {
+      appendMessage('assistant', `✓ **${file.name}** saved.\n\n${data.message}${data.preview ? '\n\n```\n' + data.preview + '…\n```' : ''}\n\nReview the preview above. If it looks right, tell me to use it — or I can tailor it for a specific role.`);
+    } else {
+      appendMessage('assistant', `Upload failed: ${data.error}`);
+    }
+  } catch (err) {
+    appendMessage('assistant', `Upload failed: ${err.message}`);
+  }
+});
+
 async function sendMessage(text) {
   if (!text.trim() || isStreaming) return;
 

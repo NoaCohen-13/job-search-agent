@@ -301,6 +301,8 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
 .chat-input::placeholder { color: #94a3b8; }
 .send-btn { width: 28px; height: 28px; border-radius: 7px; background: var(--accent); border: none; color: white; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: opacity 0.15s; }
 .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.attach-btn { width: 28px; height: 28px; border-radius: 7px; border: none; background: none; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: color 0.15s; }
+.attach-btn:hover { color: var(--accent); }
 .stop-btn { width: 28px; height: 28px; border-radius: 7px; background: #ef4444; border: none; color: white; cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: opacity 0.15s; }
 .stop-btn:hover { opacity: 0.85; }
 .shortcuts { display: flex; gap: 5px; margin-top: 7px; flex-wrap: wrap; }
@@ -755,6 +757,10 @@ body { font-family: -apple-system, 'Inter', sans-serif; background: var(--bg); c
     <div class="chat-input-wrap">
       <div class="chat-input-box">
         <textarea class="chat-input" id="chat-input" placeholder="Message your agent…" rows="1"></textarea>
+        <label class="attach-btn" id="attach-btn" title="Upload resume or file">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+          <input type="file" id="file-input" accept=".pdf,.md,.txt,.docx" style="display:none">
+        </label>
         <button class="send-btn" id="send-btn">↑</button>
         <button class="stop-btn" id="stop-btn" style="display:none" title="Stop generating">■</button>
       </div>

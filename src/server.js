@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -95,6 +96,28 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.static(resolve(__dirname, '../public')));
 
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+app.post('/api/upload-resume', upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file provided' });
+  const { originalname, buffer, mimetype } = req.file;
+  const resumePath = resolve(ROOT, 'workspace', 'resume', 'base_resume.md');
+  try {
+    let text = '';
+    if (mimetype === 'application/pdf') {
+      // Save as-is and note it's a PDF (agent can read path)
+      const pdfPath = resolve(ROOT, 'workspace', 'resume', originalname);
+      writeFileSync(pdfPath, buffer);
+      return res.json({ ok: true, message: `PDF saved to workspace/resume/${originalname}. Ask the agent to read and convert it.`, path: pdfPath });
+    }
+    text = buffer.toString('utf-8');
+    writeFileSync(resumePath, text);
+    res.json({ ok: true, message: `Resume saved as base_resume.md (${text.split('\n').length} lines)`, preview: text.slice(0, 300) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 function computeStreak(activity) {
   const days = new Set(activity.filter(a => a.type === 'application').map(a => a.timestamp.slice(0, 10)));
   const today = new Date();
@@ -163,15 +186,9 @@ app.get('/api/data/emails', async (req, res) => {
       const iStatus = await detectEmailStatusWithAI(interviewEmail);
       if (iStatus === 'interview') app.interviewEmail = interviewEmail;
     }
-    if (active.includes(app) && app.lastEmail?.detectedStatus && app.lastEmail.detectedStatus !== app.status) {
-      if (app.lastEmail.detectedStatus === 'rejected' ||
-          (app.lastEmail.detectedStatus === 'interview' && ['applied','screening'].includes(app.status))) {
-        app.status = app.lastEmail.detectedStatus;
-        dataChanged = true;
-      }
-    }
+    // No status auto-updates here — status changes are handled by scan-rejections only.
+    // This endpoint is read-only to prevent partial data writes corrupting data.json.
   }
-  if (dataChanged) writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
   res.json({ apps: forEmail });
 });
 
