@@ -312,7 +312,7 @@ export async function getEmailSummaries(companyNames) {
 }
 
 const GENERIC_SENDERS = new Set([
-  'greenhouse', 'lever', 'workday', 'bamboohr', 'jobvite', 'gmail', 'yahoo',
+  'greenhouse', 'lever', 'workday', 'myworkday', 'bamboohr', 'jobvite', 'gmail', 'yahoo',
   'linkedin', 'smartrecruiters', 'workable', 'taleo', 'icims', 'comeet',
   'drushim', 'glassdoor', 'indeed', 'jobscan', 'ashby', 'rippling', 'info',
   'notifications', 'mail', 'hiring', 'hr', 'jobs', 'careers', 'apply',
@@ -332,7 +332,13 @@ function isValidCompanyName(name) {
 }
 
 function domainToCompany(fromAddr) {
-  // Comeet/ATS subdomain: abra.rnd.comeet-notifications.com → "abra"
+  // Workday: autodesk@myworkday.com — company is the username, not the domain
+  const workdayMatch = fromAddr.match(/\b([a-z][a-z0-9-]+)@myworkday\.com/i);
+  if (workdayMatch) {
+    return workdayMatch[1].replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  // ATS subdomain: abra.rnd.comeet-notifications.com → "abra"
   const atsMatch = fromAddr.match(/@([a-z][a-z0-9-]+)\.(?:rnd\.|mail\.)?(?:comeet|lever|greenhouse|bamboohr|workday|jobvite|smartrecruiters|workable|taleo|icims|ashby|rippling)[-.]/i);
   if (atsMatch) {
     const sub = atsMatch[1].toLowerCase();
@@ -340,6 +346,7 @@ function domainToCompany(fromAddr) {
       return sub.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     }
   }
+
   // Generic: no-reply@acme.com → "acme"
   const domMatch = fromAddr.match(/<[^>]*@(?:[a-z-]+\.)?([a-z][a-z0-9-]+)\.[a-z]{2,}>/i);
   if (domMatch) {

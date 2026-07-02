@@ -60,7 +60,21 @@ Do not add any other fields. Do not wrap in markdown. Output only the JSON objec
 
 ## Company extraction
 
-Extract the hiring company name from the email body, subject, or sender domain. Use the proper display name (e.g. "Moon Active", not "moonactive"). Return `null` if you cannot determine it confidently.
+Extract the **hiring company** name — not the ATS/HR platform sending the email.
+
+Common ATS platforms that are NOT the company:
+- `myworkday.com` — Workday. The company is in the username: `autodesk@myworkday.com` → "Autodesk". Or in the subject: "Autodesk Careers - Application Received" → "Autodesk".
+- `greenhouse.io` / `greenhouse-mail.io` — Greenhouse. Company is in the subdomain or subject.
+- `lever.co` — Lever
+- `comeet-notifications.com` — Comeet. Company is the subdomain: `abra.rnd.comeet-notifications.com` → "Abra".
+- `bamboohr.com`, `jobvite.com`, `smartrecruiters.com`, `workable.com`, `ashby.com`
+
+When the sender is an ATS, look for the actual company name in:
+1. The email subject ("Autodesk Careers - Application Received" → "Autodesk")
+2. The ATS username/subdomain
+3. The email body
+
+Return `null` only if you genuinely cannot determine the company after checking all sources.
 
 ## Confidence
 

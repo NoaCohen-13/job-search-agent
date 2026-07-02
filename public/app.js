@@ -959,30 +959,43 @@ function preprocessMessage(text) {
 el('file-input')?.addEventListener('change', async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
-  e.target.value = ''; // reset so same file can be re-uploaded
+  e.target.value = '';
 
+  // Don't send automatically — store file and let user add text first
+  window._pendingFile = file;
+  const input = el('chat-input');
+  input.value = input.value ? input.value + ` [📎 ${file.name}]` : `[📎 ${file.name}] `;
+  input.focus();
+  // Place cursor at start so user can type their message before the attachment tag
+  input.setSelectionRange(0, 0);
+});
+
+async function uploadPendingFile() {
+  const file = window._pendingFile;
+  if (!file) return null;
+  window._pendingFile = null;
   const form = new FormData();
   form.append('file', file);
-
-  appendMessage('user', `📎 Uploading ${file.name}…`);
   try {
     const r = await fetch('/api/upload-resume', { method: 'POST', body: form });
-    const data = await r.json();
-    if (data.ok) {
-      appendMessage('assistant', `✓ **${file.name}** saved.\n\n${data.message}${data.preview ? '\n\n```\n' + data.preview + '…\n```' : ''}\n\nReview the preview above. If it looks right, tell me to use it — or I can tailor it for a specific role.`);
-    } else {
-      appendMessage('assistant', `Upload failed: ${data.error}`);
-    }
-  } catch (err) {
-    appendMessage('assistant', `Upload failed: ${err.message}`);
-  }
-});
+    return await r.json();
+  } catch { return null; }
+}
 
 async function sendMessage(text) {
   if (!text.trim() || isStreaming) return;
 
-  const displayText = text;                 // show original (with slash) in bubble
-  const sendText = preprocessMessage(text); // strip slash before hitting the SDK
+  // If a file is pending, upload it first and inject result into the message
+  if (window._pendingFile) {
+    const result = await uploadPendingFile();
+    if (result?.ok) {
+      text = text.replace(/\[📎[^\]]+\]/g, '').trim();
+      text = `${text}\n\n[Attached file saved: ${result.message}${result.preview ? '\n\nPreview:\n```\n' + result.preview + '…\n```' : ''}]`;
+    }
+  }
+
+  const displayText = text;
+  const sendText = preprocessMessage(text);
 
   isStreaming = true;
   abortController = new AbortController();
