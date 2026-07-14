@@ -7,7 +7,7 @@ import { marked } from 'marked';
 import { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } from 'docx';
 import { sendMessage, searchPositions, resetSession, listSessions, resumeSession, deleteSession, addMessage, initSession, getCurrentSession } from './agent.js';
 import puppeteer from 'puppeteer-core';
-import { getAuthUrl, handleCallback, isConnected, checkGmailHealth, getEmailSummaries, getInterviewEmailForCompany, detectEmailStatus, detectEmailStatusWithAI, isLikelyJobEmail, scanForNewApplications, scanForRejections, classifyEmail } from './gmail.js';
+import { getAuthUrl, handleCallback, isConnected, checkGmailHealth, getEmailSummaries, getInterviewEmailForCompany, detectEmailStatus, detectEmailStatusWithAI, isLikelyJobEmail, scanForNewApplications, scanForRejections, scanForInterviews, classifyEmail } from './gmail.js';
 import { startScheduler, triggerDiscover, triggerDigest } from './scheduler.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -903,6 +903,52 @@ app.get('/api/gmail/scan-rejections', async (req, res) => {
   if (updated.length) {
     data.activity = data.activity.slice(0, 20);
     // Recompute stats — never touch totalApplied (it's a historical counter)
+    data.stats.activeInterviews = data.applications.filter(a => a.status === 'interview').length;
+    const total = data.stats.totalApplied || data.applications.length;
+    data.stats.responseRate = total > 0
+      ? Math.round(data.applications.filter(a => ['screening','interview','offer','rejected'].includes(a.status)).length / total * 100)
+      : 0;
+    writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  }
+
+  res.json({ updated });
+});
+
+// Scan all active applications for interview invitations (English + Hebrew).
+// Updates status to 'interview' and logs activity — mirrors scan-rejections.
+app.get('/api/gmail/scan-interviews', async (req, res) => {
+  if (!isConnected()) return res.json({ updated: [] });
+  const data = readData();
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  const activeApps = data.applications.filter(a =>
+    ['applied', 'screening'].includes(a.status)
+  );
+  if (!activeApps.length) return res.json({ updated: [] });
+
+  const companyNames = activeApps.map(a => a.company);
+  const interviews = await scanForInterviews(companyNames);
+
+  const updated = [];
+  for (const r of interviews) {
+    const app = activeApps.find(a => norm(a.company) === norm(r.company));
+    if (!app || app.status === 'interview') continue;
+
+    const prevStatus = app.status;
+    app.status = 'interview';
+    data.activity.unshift({
+      text: `Interview invite from ${r.company}`,
+      type: 'interview',
+      subtext: r.subject,
+      messageId: r.messageId,
+      company: r.company,
+      timestamp: r.date ? new Date(r.date).toISOString() : new Date().toISOString(),
+    });
+    updated.push({ company: r.company, subject: r.subject, prevStatus });
+  }
+
+  if (updated.length) {
+    data.activity = data.activity.slice(0, 20);
     data.stats.activeInterviews = data.applications.filter(a => a.status === 'interview').length;
     const total = data.stats.totalApplied || data.applications.length;
     data.stats.responseRate = total > 0

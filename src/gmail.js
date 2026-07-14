@@ -123,17 +123,25 @@ const REJECTION_SIGNALS = [
   'not a fit', 'not the right fit', 'not a good fit', 'decided to move forward with other',
   'filled the position', 'position has been filled', 'no longer considering',
   'unfortunately', 'at this time we', 'we will not', 'not proceed',
-  // Phrases found in real rejection emails
   "won't be continuing", 'not continuing', 'not continuing the recruitment',
   'decided to move forward with other candidates', 'move forward with other candidates',
   'after thoughtful consideration', 'after careful consideration',
   'after reviewing your', 'will not be moving forward',
   'not be moving forward', 'decided not to move',
   'not a match', 'not the right match',
+  // Hebrew rejection signals
+  'מצטערים', 'לא נמשיך', 'לא מתאים', 'לא נבחרת', 'לא נבחרתי',
+  'נבחרו מועמדים אחרים', 'עברנו הלאה', 'לא עובר', 'לא עוברת',
+  'לא ממשיכים', 'אין התאמה', 'לא מתקדמים', 'לא נוכל להמשיך',
 ];
 const INTERVIEW_SIGNALS = [
   'interview', 'schedule a call', 'schedule time', 'availability', 'meet with',
   'next steps', 'next round', 'phone screen', 'video call', 'zoom', 'teams call',
+  'google meet', 'calendly', 'book a time', 'pick a time', 'when are you available',
+  // Hebrew interview signals
+  'ראיון', 'שיחת היכרות', 'שיחה ראשונית', 'תאום זמנים', 'תיאום זמנים',
+  'שלב הבא', 'שיחה עם', 'להכיר אותך', 'נשמח לדבר', 'נשמח להכיר',
+  'זמינות', 'פגישה', 'הזמנה לראיון', 'מועד ראיון',
 ];
 
 export function detectEmailStatus(email) {
@@ -305,7 +313,7 @@ export async function getInterviewEmailForCompany(companyName) {
     const gmail = google.gmail({ version: 'v1', auth });
 
     // Company name must be in subject or sender — avoid false matches from body text.
-    const q = `(subject:"${companyName}" OR from:"${companyName}") (interview OR "schedule a call" OR "schedule time" OR "phone screen" OR "video call" OR "zoom link" OR "google meet" OR "teams meeting" OR "book a time" OR "pick a time" OR "calendly" OR "when are you available") -from:jobalerts-noreply@linkedin.com -category:promotions -category:social -subject:"weekly job search digest"`;
+    const q = `(subject:"${companyName}" OR from:"${companyName}") (interview OR "schedule a call" OR "schedule time" OR "phone screen" OR "video call" OR "zoom link" OR "google meet" OR "teams meeting" OR "book a time" OR "pick a time" OR "calendly" OR "when are you available" OR ראיון OR "שיחת היכרות" OR "שיחה ראשונית" OR "תאום זמנים" OR "שלב הבא" OR פגישה OR זמינות) -from:jobalerts-noreply@linkedin.com -category:promotions -category:social -subject:"weekly job search digest"`;
     const list = await gmail.users.messages.list({ userId: 'me', q, maxResults: 1 });
     const messages = list.data.messages;
     if (!messages?.length) return null;
@@ -561,5 +569,49 @@ export async function scanForNewApplications() {
     }));
 
     return results.filter(Boolean);
+  } catch { return []; }
+}
+
+// Broad scan for interview invitations per tracked company — handles English + Hebrew.
+export async function scanForInterviews(companyNames) {
+  if (!companyNames?.length) return [];
+  try {
+    const auth = await getAuthedClient();
+    if (!auth) return [];
+    const gmail = google.gmail({ version: 'v1', auth });
+
+    const found = await Promise.all(companyNames.map(async (company) => {
+      try {
+        const variants = companyNameVariants(company);
+        const nameQ = variants.map(v => `"${v}"`).join(' OR ');
+        const q = `(${nameQ}) -from:me -from:jobalerts-noreply@linkedin.com newer_than:120d`;
+        const list = await gmail.users.messages.list({ userId: 'me', q, maxResults: 5 });
+        if (!list.data.messages?.length) return null;
+
+        for (const { id } of list.data.messages) {
+          const msg = await gmail.users.messages.get({ userId: 'me', id, format: 'full' });
+          const headers = msg.data.payload?.headers || [];
+          const get = (n) => headers.find(h => h.name === n)?.value || '';
+          const subject = get('Subject');
+          const from = get('From');
+          const date = get('Date');
+          const snippet = msg.data.snippet || '';
+          const body = extractEmailText(msg.data.payload);
+
+          const quick = detectEmailStatus({ subject, snippet: body.slice(0, 300) || snippet });
+          const status = quick || await classifyEmailWithAI(subject, body || snippet, from);
+
+          if (status === 'interview') {
+            return { company, subject, from, snippet, date, messageId: id };
+          }
+        }
+        return null;
+      } catch (err) {
+        if (err?.message?.includes('invalid_grant') || err?.status === 401) markTokenInvalid();
+        return null;
+      }
+    }));
+
+    return found.filter(Boolean);
   } catch { return []; }
 }

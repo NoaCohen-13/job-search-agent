@@ -695,6 +695,7 @@ async function loadDashboard() {
         _gmailScanDone = true;
         checkGmailNewApplications();
         scanGmailRejections();
+        scanGmailInterviews();
       }
     }
   } catch (err) {
@@ -773,6 +774,17 @@ async function scanGmailRejections() {
         banner.parentElement?.insertBefore(notice, banner);
         setTimeout(() => notice.remove(), 8000);
       }
+    }
+  } catch {}
+}
+
+async function scanGmailInterviews() {
+  try {
+    const resp = await fetch('/api/gmail/scan-interviews');
+    const { updated } = await resp.json();
+    if (updated?.length) {
+      await loadDashboard();
+      showGmailNotice(`🎉 Gmail: moved ${updated.map(u => u.company).join(', ')} to Interview based on your inbox`);
     }
   } catch {}
 }
