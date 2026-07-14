@@ -5,7 +5,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { marked } from 'marked';
 import { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } from 'docx';
-import { sendMessage, searchPositions, resetSession, listSessions, resumeSession, deleteSession, addMessage, initSession } from './agent.js';
+import { sendMessage, searchPositions, resetSession, listSessions, resumeSession, deleteSession, addMessage, initSession, getCurrentSession } from './agent.js';
 import puppeteer from 'puppeteer-core';
 import { getAuthUrl, handleCallback, isConnected, checkGmailHealth, getEmailSummaries, getInterviewEmailForCompany, detectEmailStatus, detectEmailStatusWithAI, scanForNewApplications, scanForRejections, classifyEmail } from './gmail.js';
 import { startScheduler, triggerDiscover, triggerDigest } from './scheduler.js';
@@ -262,6 +262,10 @@ app.post('/api/sessions/:id/resume', (req, res) => {
 app.delete('/api/sessions/:id', (req, res) => {
   deleteSession(req.params.id);
   res.json({ ok: true });
+});
+
+app.get('/api/session/current', (req, res) => {
+  res.json(getCurrentSession() || { messages: [] });
 });
 
 app.post('/api/session/message', (req, res) => {

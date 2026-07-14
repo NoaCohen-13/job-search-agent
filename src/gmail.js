@@ -86,9 +86,9 @@ export async function getLastEmailForCompany(companyName) {
     if (!auth) return null;
     const gmail = google.gmail({ version: 'v1', auth });
 
-    // Exclude LinkedIn JOB ALERTS only (jobalerts-noreply) — they list many companies
-    // and cause false matches. Allow jobs-noreply (application status updates like rejections).
-    const q = `"${companyName}" in:anywhere -from:jobalerts-noreply@linkedin.com -category:promotions -category:social -subject:"weekly job search digest"`;
+    // Match company name in subject or sender name only — not body — to avoid false
+    // positives where an unrelated email mentions the word (e.g. "base" in newsletters).
+    const q = `(subject:"${companyName}" OR from:"${companyName}") -from:jobalerts-noreply@linkedin.com -category:promotions -category:social -subject:"weekly job search digest"`;
     const list = await gmail.users.messages.list({ userId: 'me', q, maxResults: 1 });
     const messages = list.data.messages;
     if (!messages?.length) return null;
@@ -280,9 +280,8 @@ export async function getInterviewEmailForCompany(companyName) {
     if (!auth) return null;
     const gmail = google.gmail({ version: 'v1', auth });
 
-    // Exclude job alert emails only. Allow jobs-noreply (application status updates).
-    // Require real scheduling language — excludes LinkedIn Easy Apply confirmations.
-    const q = `"${companyName}" (interview OR "schedule a call" OR "schedule time" OR "phone screen" OR "video call" OR "zoom link" OR "google meet" OR "teams meeting" OR "book a time" OR "pick a time" OR "calendly" OR "when are you available") in:anywhere -from:jobalerts-noreply@linkedin.com -category:promotions -category:social -subject:"weekly job search digest"`;
+    // Company name must be in subject or sender — avoid false matches from body text.
+    const q = `(subject:"${companyName}" OR from:"${companyName}") (interview OR "schedule a call" OR "schedule time" OR "phone screen" OR "video call" OR "zoom link" OR "google meet" OR "teams meeting" OR "book a time" OR "pick a time" OR "calendly" OR "when are you available") -from:jobalerts-noreply@linkedin.com -category:promotions -category:social -subject:"weekly job search digest"`;
     const list = await gmail.users.messages.list({ userId: 'me', q, maxResults: 1 });
     const messages = list.data.messages;
     if (!messages?.length) return null;

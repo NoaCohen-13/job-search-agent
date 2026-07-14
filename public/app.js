@@ -2129,6 +2129,23 @@ function startPolling() {
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
+async function restoreCurrentSession() {
+  try {
+    const session = await fetch('/api/session/current').then(r => r.json());
+    if (!session?.messages?.length) return;
+    const container = el('chat-messages');
+    container.innerHTML = '';
+    for (const msg of session.messages) {
+      const div = document.createElement('div');
+      div.className = `msg ${msg.role}`;
+      const timeStr = msg.time ? new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      div.innerHTML = `<div class="msg-bubble">${msg.role === 'user' ? esc(msg.text) : renderMarkdown(msg.text)}</div><div class="msg-time">${timeStr}</div>`;
+      container.appendChild(div);
+    }
+    container.scrollTop = container.scrollHeight;
+  } catch {}
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   loadDashboard();
   loadDiscover();
@@ -2140,5 +2157,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   initOnboarding();
   initDiscover();
   startPolling();
+  restoreCurrentSession();
   await checkOnboarding();
 });

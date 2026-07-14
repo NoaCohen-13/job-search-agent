@@ -24,6 +24,10 @@ function loadSessionMeta() {
   try { return JSON.parse(readFileSync(SESSION_FILE, 'utf-8')); } catch { return null; }
 }
 
+export function getCurrentSession() {
+  return loadSessionMeta();
+}
+
 function loadSessionId() {
   return loadSessionMeta()?.sessionId || null;
 }
