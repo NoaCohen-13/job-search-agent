@@ -113,6 +113,8 @@ export const APPLIED_SIGNALS = [
   'your application has been received', 'application received', 'application submitted',
   'successfully applied', 'we got it', 'your resume has been received',
   'thank you for your interest in joining', 'thank you for submitting',
+  'your application was sent', 'application was sent', 'application to',
+  'applied to', 'you applied',
 ];
 
 const REJECTION_SIGNALS = [
@@ -141,6 +143,28 @@ export function detectEmailStatus(email) {
   if (INTERVIEW_SIGNALS.some(s => text.includes(s))) return 'interview';
   if (APPLIED_SIGNALS.some(s => text.includes(s))) return 'applied';
   return null;
+}
+
+// Fast heuristic (no AI) — true if the email is plausibly job-related.
+// Used to filter out false positives (customer support, newsletters, LinkedIn promos)
+// without the cost of an AI call.
+export function isLikelyJobEmail(email) {
+  if (!email) return false;
+  const text = `${email.subject || ''} ${email.snippet || ''}`.toLowerCase();
+  const from = (email.from || '').toLowerCase();
+  // Known non-job patterns to exclude
+  if (text.includes('new jobs similar') || text.includes('jobs similar to')) return false;
+  if (text.includes('apply now to') && text.includes('linkedin')) return false;
+  if (text.includes('support experience') || text.includes('how was your experience')) return false;
+  if (text.includes('saved jobs will expire') || text.includes('saved job')) return false;
+  // Positive job-related signals (broader than detectEmailStatus)
+  const JOB_SIGNALS = [
+    ...APPLIED_SIGNALS, ...REJECTION_SIGNALS, ...INTERVIEW_SIGNALS,
+    'your application', 'application was sent', 'application to',
+    'careers', 'hiring', 'position', 'candidate', 'job opportunity',
+    'application process', 'recruitment', 'talent acquisition',
+  ];
+  return JOB_SIGNALS.some(s => text.includes(s));
 }
 
 // Classify an email using the email-classifier sub-agent.

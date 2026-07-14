@@ -7,7 +7,7 @@ import { marked } from 'marked';
 import { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } from 'docx';
 import { sendMessage, searchPositions, resetSession, listSessions, resumeSession, deleteSession, addMessage, initSession, getCurrentSession } from './agent.js';
 import puppeteer from 'puppeteer-core';
-import { getAuthUrl, handleCallback, isConnected, checkGmailHealth, getEmailSummaries, getInterviewEmailForCompany, detectEmailStatus, detectEmailStatusWithAI, scanForNewApplications, scanForRejections, classifyEmail } from './gmail.js';
+import { getAuthUrl, handleCallback, isConnected, checkGmailHealth, getEmailSummaries, getInterviewEmailForCompany, detectEmailStatus, detectEmailStatusWithAI, isLikelyJobEmail, scanForNewApplications, scanForRejections, classifyEmail } from './gmail.js';
 import { startScheduler, triggerDiscover, triggerDigest } from './scheduler.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -177,14 +177,15 @@ app.get('/api/data/emails', async (req, res) => {
   for (let i = 0; i < forEmail.length; i++) {
     const app = forEmail[i];
     const email = emails[app.company];
-    if (email) {
+    // Fast filter — no AI calls, completes in milliseconds.
+    // isLikelyJobEmail rejects customer support emails, LinkedIn promos, etc.
+    if (email && isLikelyJobEmail(email)) {
       app.lastEmail = email;
-      app.lastEmail.detectedStatus = await detectEmailStatusWithAI(email);
+      app.lastEmail.detectedStatus = detectEmailStatus(email);
     }
     const interviewEmail = active.includes(app) ? interviewEmails[active.indexOf(app)] : null;
     if (interviewEmail) {
-      const iStatus = await detectEmailStatusWithAI(interviewEmail);
-      if (iStatus === 'interview') app.interviewEmail = interviewEmail;
+      app.interviewEmail = interviewEmail;
     }
     // No status auto-updates here — status changes are handled by scan-rejections only.
     // This endpoint is read-only to prevent partial data writes corrupting data.json.

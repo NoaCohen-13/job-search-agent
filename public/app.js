@@ -2130,10 +2130,14 @@ function startPolling() {
 
 // ── Init ───────────────────────────────────────────────────────────────────
 async function restoreCurrentSession() {
+  let session;
   try {
-    const session = await fetch('/api/session/current').then(r => r.json());
-    if (!session?.messages?.length) return;
-    const container = el('chat-messages');
+    session = await fetch('/api/session/current').then(r => r.json());
+  } catch { return; }
+  if (!session?.messages?.length) return;
+  const container = el('chat-messages');
+  const saved = container.innerHTML;
+  try {
     container.innerHTML = '';
     for (const msg of session.messages) {
       const div = document.createElement('div');
@@ -2143,7 +2147,7 @@ async function restoreCurrentSession() {
       container.appendChild(div);
     }
     container.scrollTop = container.scrollHeight;
-  } catch {}
+  } catch { container.innerHTML = saved; }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
