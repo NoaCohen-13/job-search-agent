@@ -580,11 +580,21 @@ export async function scanForInterviews(companyNames) {
     if (!auth) return [];
     const gmail = google.gmail({ version: 'v1', auth });
 
+    const INTERVIEW_Q = [
+      'interview', '"schedule a call"', '"phone screen"', '"video call"',
+      '"google meet"', '"zoom link"', 'calendly', '"when are you available"',
+      '"book a time"', '"next steps"', '"next round"',
+      'ראיון', '"שיחת היכרות"', '"שיחה ראשונית"', '"תאום זמנים"',
+      '"שלב הבא"', '"הזמנה לראיון"',
+    ].join(' OR ');
+
     const found = await Promise.all(companyNames.map(async (company) => {
       try {
         const variants = companyNameVariants(company);
         const nameQ = variants.map(v => `"${v}"`).join(' OR ');
-        const q = `(${nameQ}) -from:me -from:jobalerts-noreply@linkedin.com newer_than:120d`;
+        // Require company name in subject/from AND an interview keyword — prevents
+        // false positives from emails that merely mention the company in body text.
+        const q = `(subject:(${nameQ}) OR from:(${nameQ})) (${INTERVIEW_Q}) -from:me -from:jobalerts-noreply@linkedin.com newer_than:120d`;
         const list = await gmail.users.messages.list({ userId: 'me', q, maxResults: 5 });
         if (!list.data.messages?.length) return null;
 
@@ -612,6 +622,34 @@ export async function scanForInterviews(companyNames) {
       }
     }));
 
-    return found.filter(Boolean);
+    // Also scan Google Calendar invitations containing ראיון — catches Hebrew company
+    // emails where the domain is a Latin transliteration that won't match the Hebrew name.
+    // Calendar invites have a predictable subject format: "Invitation: ..."
+    let calendarMatches = [];
+    try {
+      const calQ = 'subject:Invitation (ראיון OR interview) -from:me newer_than:90d';
+      const calList = await gmail.users.messages.list({ userId: 'me', q: calQ, maxResults: 10 });
+      if (calList.data.messages?.length) {
+        for (const { id } of calList.data.messages) {
+          const msg = await gmail.users.messages.get({ userId: 'me', id, format: 'full' });
+          const headers = msg.data.payload?.headers || [];
+          const get = (n) => headers.find(h => h.name === n)?.value || '';
+          const subject = get('Subject');
+          const from = get('From');
+          const date = get('Date');
+          const body = extractEmailText(msg.data.payload);
+          // Try to match this invite to a tracked company by looking for company name in body
+          const matchedCompany = companyNames.find(c =>
+            body.toLowerCase().includes(c.toLowerCase()) ||
+            subject.toLowerCase().includes(c.toLowerCase())
+          );
+          if (matchedCompany && !found.find(f => f?.company === matchedCompany)) {
+            calendarMatches.push({ company: matchedCompany, subject, from, snippet: msg.data.snippet || '', date, messageId: id });
+          }
+        }
+      }
+    } catch {}
+
+    return [...found.filter(Boolean), ...calendarMatches];
   } catch { return []; }
 }
