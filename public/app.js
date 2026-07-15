@@ -476,6 +476,13 @@ async function loadDiscover() {
     const badge = el('discover-badge');
     const isActive = document.querySelector('.tab[data-tab="discover"]')?.classList.contains('active');
     if (badge && data?.results?.length && !isActive) badge.classList.add('visible');
+    // Silently prune expired LinkedIn listings in the background
+    if (data?.results?.some(r => r.url?.includes('linkedin.com/jobs/view/'))) {
+      fetch('/api/discover/check-active', { method: 'POST' })
+        .then(r => r.json())
+        .then(({ removed }) => { if (removed > 0) loadDiscover(); })
+        .catch(() => {});
+    }
   } catch {}
 }
 

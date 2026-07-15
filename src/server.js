@@ -477,7 +477,17 @@ app.get('/api/discover', (req, res) => {
   const discoverPath = resolve(ROOT, 'workspace', 'discover', 'latest.json');
   if (!existsSync(discoverPath)) return res.json(null);
   try {
-    res.json(JSON.parse(readFileSync(discoverPath, 'utf-8')));
+    const discover = JSON.parse(readFileSync(discoverPath, 'utf-8'));
+    // Filter out results for companies already in pipeline or saved jobs
+    const data = readData();
+    const pipelineNames = new Set([
+      ...(data.applications || []).map(a => a.company.toLowerCase()),
+      ...(data.savedJobs || []).map(j => j.company.toLowerCase()),
+    ]);
+    if (discover?.results) {
+      discover.results = discover.results.filter(r => !pipelineNames.has(r.company?.toLowerCase()));
+    }
+    res.json(discover);
   } catch {
     res.json(null);
   }
@@ -597,6 +607,58 @@ app.delete('/api/saved-job', (req, res) => {
   data.savedJobs = data.savedJobs.filter(j => j.id !== id);
   writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
   res.json({ ok: true });
+});
+
+app.post('/api/discover/check-active', async (req, res) => {
+  const discoverPath = resolve(ROOT, 'workspace', 'discover', 'latest.json');
+  if (!existsSync(discoverPath)) return res.json({ removed: [] });
+  let data;
+  try { data = JSON.parse(readFileSync(discoverPath, 'utf-8')); } catch { return res.json({ removed: [] }); }
+  const results = data.results || [];
+  const removed = [];
+
+  await Promise.all(results.map(async (r, i) => {
+    if (!r.url) return;
+    // Only check LinkedIn job view URLs — other URLs (careers pages, comeet, etc.) can't be auto-checked
+    if (!r.url.includes('linkedin.com/jobs/view/')) return;
+    try {
+      const resp = await fetch(r.url, {
+        redirect: 'follow',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+      const html = await resp.text();
+
+      let isExpired = false;
+      if (resp.url.includes('trk=expired_jd_redirect')) {
+        isExpired = true;
+      } else {
+        const jsonLdMatch = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+        if (jsonLdMatch) {
+          try {
+            const jd = JSON.parse(jsonLdMatch[1]);
+            if (jd.validThrough) isExpired = new Date(jd.validThrough) < new Date();
+          } catch {}
+        } else {
+          const title = html.match(/<title[^>]*>([^<]*)<\/title>/)?.[1]?.trim();
+          if (!title || title === 'LinkedIn') isExpired = true;
+        }
+      }
+
+      if (isExpired) removed.push(i);
+    } catch {}
+  }));
+
+  if (removed.length > 0) {
+    const removedSet = new Set(removed);
+    data.results = results.filter((_, i) => !removedSet.has(i));
+    writeFileSync(discoverPath, JSON.stringify(data, null, 2));
+  }
+
+  res.json({ removed: removed.length });
 });
 
 app.delete('/api/discover/result', (req, res) => {
