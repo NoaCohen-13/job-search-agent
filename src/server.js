@@ -331,12 +331,14 @@ app.get('/api/company', (req, res) => {
     if (existsSync(scorePath)) {
       try { atsScore = JSON.parse(readFileSync(scorePath, 'utf-8')); } catch {}
     }
-    const hasJd = existsSync(resolve(dir, 'job_description.md'));
+    const jdPath = resolve(dir, 'job_description.md');
+    const hasJd = existsSync(jdPath);
+    const jdContent = hasJd ? readFileSync(jdPath, 'utf-8') : null;
     const hasTailored = existsSync(resolve(dir, 'tailored_resume.md'));
     const notesPath = resolve(dir, 'notes.md');
     const userNotes = existsSync(notesPath) ? readFileSync(notesPath, 'utf-8') : '';
     const company = data.companies.find(c => c.name.toLowerCase() === savedJob.company.toLowerCase()) || null;
-    return res.json({ savedJob, company, application: null, research: null, interviewNotes: null, userNotes, atsScore, hasJd, hasTailored });
+    return res.json({ savedJob, company, application: null, research: null, interviewNotes: null, userNotes, atsScore, hasJd, hasTailored, jdContent });
   }
 
   const company = data.companies.find(c => c.name.toLowerCase() === name.toLowerCase()) || null;
@@ -546,25 +548,38 @@ app.post('/api/saved-jobs/check-active', async (req, res) => {
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept-Language': 'en-US,en;q=0.9',
         },
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(10000),
       });
-      // Redirected away from a job listing → expired
-      if (!r.url.includes('/jobs/view/') && !r.url.includes('/jobs/search/')) {
+      const html = await r.text();
+
+      // Signal 1: LinkedIn appends trk=expired_jd_redirect on expired listings
+      if (r.url.includes('trk=expired_jd_redirect')) {
         job.expired = true; expired.push(job.id); return;
       }
-      const html = await r.text();
-      if (
-        html.includes('No longer accepting applications') ||
-        html.includes('no-longer-accepting') ||
-        html.includes('This job is closed') ||
-        html.includes('job-closed') ||
-        // LinkedIn redirects expired listings to the jobs search page
-        r.url.includes('/jobs/search') && !job.url.includes('/jobs/search')
-      ) {
-        job.expired = true; expired.push(job.id);
-      } else {
-        job.expired = false;
+
+      // Signal 2: Parse JSON-LD validThrough — most reliable for active/expired dating
+      const jsonLdMatch = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+      if (jsonLdMatch) {
+        try {
+          const jd = JSON.parse(jsonLdMatch[1]);
+          if (jd.validThrough) {
+            if (new Date(jd.validThrough) < new Date()) {
+              job.expired = true; expired.push(job.id);
+            } else {
+              job.expired = false;
+            }
+            return;
+          }
+        } catch {}
       }
+
+      // Signal 3: Generic error page — title is just "LinkedIn" with no job content
+      const title = html.match(/<title[^>]*>([^<]*)<\/title>/)?.[1]?.trim();
+      if (!title || title === 'LinkedIn') {
+        job.expired = true; expired.push(job.id); return;
+      }
+
+      job.expired = false;
     } catch {
       // Network error — don't mark as expired, just leave it
     }

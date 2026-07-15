@@ -138,12 +138,11 @@ function renderPipeline(data) {
       const emailLine = realEmail
         ? `<a class="pipe-card-email" title="${esc(realEmail.subject)}" href="${emailGmailUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${gmailIcon(16)}${relativeTime(realEmail.timestamp)}</a>`
         : '';
-      // For Hebrew/non-ASCII company names, searching LinkedIn by company name returns noise.
-      // Fall back to role-only search so results are at least relevant.
+      // For Hebrew/non-ASCII company names, LinkedIn search returns noise — omit the icon.
       const isAsciiCompany = /^[\x00-\x7F]+$/.test(a.company);
-      const liKeywords = isAsciiCompany ? `${a.role} ${a.company}` : a.role;
-      const liJobUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(liKeywords)}&location=Israel`;
-      const liLink = `<a class="pipe-card-li" href="${liJobUrl}" target="_blank" rel="noopener" title="Search this role on LinkedIn" onclick="event.stopPropagation()">${linkedinIcon(13)}</a>`;
+      const liLink = isAsciiCompany
+        ? `<a class="pipe-card-li" href="https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(a.role + ' ' + a.company)}&location=Israel" target="_blank" rel="noopener" title="Search this role on LinkedIn" onclick="event.stopPropagation()">${linkedinIcon(13)}</a>`
+        : '';
       return `<div class="pipe-card ${stage.cls}${hidden ? ' pipe-card-extra' : ''}">
         <div class="pipe-card-header">
           <div class="pipe-card-name">${esc(a.company)}</div>
@@ -1467,7 +1466,7 @@ async function saveContacts(companyName, contacts) {
 }
 
 function renderCompanyPanel(data, name) {
-  const { company, application, savedJob, research, interviewNotes, userNotes, atsScore, hasJd, hasTailored } = data;
+  const { company, application, savedJob, research, interviewNotes, userNotes, atsScore, hasJd, hasTailored, jdContent } = data;
   cpContacts = company?.contacts || [];
   const color = company?.color || '#64748b';
   el('cp-logo').style.background = color;
@@ -1477,7 +1476,10 @@ function renderCompanyPanel(data, name) {
     el('cp-pill').innerHTML = `<span class="pill pill-${s}">${s.charAt(0).toUpperCase() + s.slice(1)}</span>`;
     el('cp-role').textContent = application.role;
   } else if (savedJob) {
-    el('cp-pill').innerHTML = `<span class="pill" style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0">Saved</span>`;
+    const applyLink = savedJob.url
+      ? `<a class="cp-apply-btn" href="${esc(savedJob.url)}" target="_blank" rel="noopener">Apply →</a>`
+      : '';
+    el('cp-pill').innerHTML = `<span class="pill" style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0">Saved</span>${applyLink}<button class="cp-remove-btn" data-remove-saved-job="${esc(savedJob.id)}" title="Remove this position">✕ Remove</button>`;
     el('cp-role').textContent = savedJob.role || '';
   } else {
     el('cp-pill').innerHTML = `<span class="pill" style="background:var(--bg);color:var(--muted);border:1px solid var(--border)">Researched</span>`;
@@ -1518,6 +1520,12 @@ function renderCompanyPanel(data, name) {
         <div class="cp-section-body">${esc(application.nextAction)}${application.dueDate ? ' · <span style="color:var(--yellow)">' + esc(application.dueDate) + '</span>' : ''}</div>
       </div>`;
     }
+  }
+  if (savedJob && jdContent) {
+    ov += `<div class="cp-section">
+      <div class="cp-section-title">Position</div>
+      <div class="cp-jd-preview">${esc(jdContent)}</div>
+    </div>`;
   }
   ov += renderContactsSection(name);
   ov += `<div class="cp-section">
@@ -1565,6 +1573,17 @@ function renderCompanyPanel(data, name) {
         body: JSON.stringify({ id: statusBtns.dataset.appId, status: newStatus }),
       });
       el('cp-pill').innerHTML = `<span class="pill pill-${newStatus}">${newStatus.charAt(0).toUpperCase() + newStatus.slice(1)}</span>`;
+      loadDashboard();
+    });
+  }
+
+  // Remove saved job from panel
+  const removeBtn = document.querySelector('[data-remove-saved-job]');
+  if (removeBtn) {
+    removeBtn.addEventListener('click', async () => {
+      const id = removeBtn.dataset.removeSavedJob;
+      await fetch(`/api/saved-job?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      closeCompanyPanel();
       loadDashboard();
     });
   }
