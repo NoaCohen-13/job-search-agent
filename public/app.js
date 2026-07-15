@@ -583,6 +583,7 @@ function makeCompanyCard(co) {
 }
 
 function makeSavedJobCard(job) {
+  if (job.expired) return '';
   const initials = job.company.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   const applyLink = job.url
     ? `<a class="saved-job-apply-btn" href="${esc(job.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open job listing">Apply →</a>`
@@ -594,6 +595,13 @@ function makeSavedJobCard(job) {
     ${job.role ? `<div class="co-tagline">${esc(job.role)}</div>` : ''}
     <div class="co-status"><span class="co-dot" style="background:#16a34a"></span>Saved${applyLink}</div>
   </div>`;
+}
+
+async function checkSavedJobsActive() {
+  try {
+    const { expired } = await fetch('/api/saved-jobs/check-active', { method: 'POST' }).then(r => r.json());
+    if (expired?.length) await loadDashboard();
+  } catch {}
 }
 
 function renderCompanies(data) {
@@ -703,6 +711,7 @@ async function loadDashboard() {
         checkGmailNewApplications();
         scanGmailRejections();
         scanGmailInterviews();
+        checkSavedJobsActive();
       }
     }
   } catch (err) {

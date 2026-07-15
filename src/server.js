@@ -526,6 +526,54 @@ app.post('/api/discover/save', (req, res) => {
   res.json({ ok: true, id });
 });
 
+// Check each saved job URL to see if the listing is still active.
+// Marks expired: true on jobs that are closed or have broken URLs.
+app.post('/api/saved-jobs/check-active', async (req, res) => {
+  const data = readData();
+  if (!data.savedJobs?.length) return res.json({ checked: 0, expired: [] });
+
+  const COLLECTION_RE = /\/jobs\/collections\//;
+  const expired = [];
+
+  await Promise.all(data.savedJobs.map(async (job) => {
+    if (!job.url) { job.expired = true; expired.push(job.id); return; }
+    // Collection/recommended URLs are never real job listings
+    if (COLLECTION_RE.test(job.url)) { job.expired = true; expired.push(job.id); return; }
+    try {
+      const r = await fetch(job.url, {
+        redirect: 'follow',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        signal: AbortSignal.timeout(8000),
+      });
+      // Redirected away from a job listing → expired
+      if (!r.url.includes('/jobs/view/') && !r.url.includes('/jobs/search/')) {
+        job.expired = true; expired.push(job.id); return;
+      }
+      const html = await r.text();
+      if (
+        html.includes('No longer accepting applications') ||
+        html.includes('no-longer-accepting') ||
+        html.includes('This job is closed') ||
+        html.includes('job-closed') ||
+        // LinkedIn redirects expired listings to the jobs search page
+        r.url.includes('/jobs/search') && !job.url.includes('/jobs/search')
+      ) {
+        job.expired = true; expired.push(job.id);
+      } else {
+        job.expired = false;
+      }
+    } catch {
+      // Network error — don't mark as expired, just leave it
+    }
+  }));
+
+  writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  res.json({ checked: data.savedJobs.length, expired });
+});
+
 app.delete('/api/saved-job', (req, res) => {
   const { id } = req.query;
   if (!id) return res.status(400).json({ error: 'id required' });
