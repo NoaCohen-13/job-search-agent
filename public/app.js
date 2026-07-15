@@ -138,7 +138,11 @@ function renderPipeline(data) {
       const emailLine = realEmail
         ? `<a class="pipe-card-email" title="${esc(realEmail.subject)}" href="${emailGmailUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${gmailIcon(16)}${relativeTime(realEmail.timestamp)}</a>`
         : '';
-      const liJobUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(a.role + ' ' + a.company)}&location=Israel`;
+      // For Hebrew/non-ASCII company names, searching LinkedIn by company name returns noise.
+      // Fall back to role-only search so results are at least relevant.
+      const isAsciiCompany = /^[\x00-\x7F]+$/.test(a.company);
+      const liKeywords = isAsciiCompany ? `${a.role} ${a.company}` : a.role;
+      const liJobUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(liKeywords)}&location=Israel`;
       const liLink = `<a class="pipe-card-li" href="${liJobUrl}" target="_blank" rel="noopener" title="Search this role on LinkedIn" onclick="event.stopPropagation()">${linkedinIcon(13)}</a>`;
       return `<div class="pipe-card ${stage.cls}${hidden ? ' pipe-card-extra' : ''}">
         <div class="pipe-card-header">
