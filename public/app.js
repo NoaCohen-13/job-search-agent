@@ -584,12 +584,15 @@ function makeCompanyCard(co) {
 
 function makeSavedJobCard(job) {
   const initials = job.company.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const applyLink = job.url
+    ? `<a class="saved-job-apply-btn" href="${esc(job.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open job listing">Apply →</a>`
+    : '';
   return `<div class="company-card saved-job-card" data-job-id="${esc(job.id)}" data-company="${esc(job.company)}">
     <button class="co-delete-btn" data-delete-saved-job="${esc(job.id)}" title="Remove">✕</button>
     <div class="co-logo" style="background:#0ea5e9">${initials}</div>
     <div class="co-name">${esc(job.company)}</div>
     ${job.role ? `<div class="co-tagline">${esc(job.role)}</div>` : ''}
-    <div class="co-status"><span class="co-dot" style="background:#16a34a"></span>Saved</div>
+    <div class="co-status"><span class="co-dot" style="background:#16a34a"></span>Saved${applyLink}</div>
   </div>`;
 }
 
